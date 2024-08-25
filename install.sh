@@ -28,6 +28,14 @@ print_error() {
   echo -e "${prefix_color}${prefix}${reset_color}${message}"
 }
 
+check_service() {
+    if systemctl is-active --quiet $1; then
+        print_log "The '$1' service is working correctly!"
+    else
+        print_error The '$1' service is running with errors!
+    fi
+}
+
 apt_update() {
     print_log "Update packages"
     apt-get update
@@ -78,13 +86,6 @@ replace_text_in_file() {
     print_log "SET $1=$2 IN $3"
 }
 
-check_service() {
-    if systemctl list-units --type=service --all | grep -q "$1.service"; then
-        return 0
-    fi
-    return 1
-}
-
 while [[ $# -gt 0 ]]; do
     case $1 in
         --remove)
@@ -92,24 +93,32 @@ while [[ $# -gt 0 ]]; do
             systemctl stop xray.service
             if [ -e $NGINX_NEW_CONFIG ]; then
                 rm -f $NGINX_NEW_CONFIG
+                print_log "Remove: '$NGINX_NEW_CONFIG'"
             fi
             if [ -e $NGINX_DEFAULT_CONFIG_SRC ]; then
                 link -s $NGINX_DEFAULT_CONFIG_SRC $NGINX_DEFAULT_CONFIG_LINK
+                print_log "Link: '$NGINX_DEFAULT_CONFIG_LINK'"
             fi
             if [ -e $XRAY_USER_CONFIG_DEST ]; then
                 rm -f $XRAY_USER_CONFIG_DEST
+                print_log "Remove: '$XRAY_USER_CONFIG_DEST'"
             fi
             if [ -e $XRAY_CONFIG_PATH ]; then
                 rm -f $XRAY_CONFIG_PATH
+                print_log "Remove: '$XRAY_CONFIG_PATH'"
             fi
             print_log "Remove git script '$XRAY_GIT_SCRIPT'"
             bash -c "$(curl -L $XRAY_GIT_SCRIPT)" @ remove --purge
             systemctl start nginx.service
-            return 0
+            print_log "Start nginx service"
+            check_service "nginx"
+            exit 0
             ;;
         *)
+            exit 1
             ;;
     esac
+    shift
 done
 
 apt_update
@@ -231,17 +240,8 @@ replace_text_in_file "DOMAIN_NAME" $YOUR_DOMAIN $XRAY_USER_CONFIG_DEST
 systemctl start nginx.service
 systemctl start xray.service
 
-if service nginx status > /dev/null 2>&1 | grep -q "running"; then
-  print_log "The 'nginx' service is working correctly!"
-else
-  print_error The 'nginx' service is running with errors!
-fi
-
-if service xray status > /dev/null 2>&1 | grep -q "running"; then
-  print_log "The 'xray' service is working correctly!"
-else
-  print_error The 'xray' service is running with errors!
-fi
+check_service "nginx"
+check_service "xray"
 
 print_log "Your user vless config:"
 print_log "----------------------"
