@@ -193,6 +193,7 @@ while true; do
     fi
     if ss -tuln | grep -q ":$XRAY_SHADOWSOCS_PORT"; then
         print_error "The port $XRAY_SHADOWSOCS_PORT is already in use"
+        XRAY_SHADOWSOCS_PORT="2121"
     fi
     if confirm_changes "Port: $XRAY_SHADOWSOCS_PORT. Is this the correct port?"; then
         break
