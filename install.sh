@@ -163,7 +163,7 @@ wget -O $XRAY_CONFIG_PATH $REPO_XRAY_CONFIG
 while true; do
     print_log "Print shadowsocks port (default: 22):"
     read XRAY_SHADOWSOCS_PORT < /dev/tty
-    if ! is_number $XRAY_SHADOWSOCS_PORT; do
+    if ! is_number $XRAY_SHADOWSOCS_PORT; then
         $XRAY_SHADOWSOCS_PORT="22"
     done
     while confirm_changes "Port: $XRAY_SHADOWSOCS_PORT. Is this the correct port?"; do
