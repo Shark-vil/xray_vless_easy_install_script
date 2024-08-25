@@ -151,7 +151,7 @@ XRAY_USER_PASSWORD="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z0-9' | head -c 1
 XRAY_USER_PASSWORD_BASE64=$(echo -n "$XRAY_USER_PASSWORD" | base64)
 XRAY_USER_UUID=$(cat /proc/sys/kernel/random/uuid)
 XRAY_WS_PATH="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z' | head -c 24)"
-$NGINX_DEFAULT_CONFIG="/etc/nginx/sites-enabled/default"
+NGINX_DEFAULT_CONFIG="/etc/nginx/sites-enabled/default"
 
 replace_text_in_file "SHADOWSOCKS_PORT" $XRAY_SHADOWSOCS_PORT $XRAY_CONFIG_PATH
 replace_text_in_file "PASSWORD" $XRAY_USER_PASSWORD_BASE64 $XRAY_CONFIG_PATH
@@ -161,7 +161,7 @@ replace_text_in_file "WEBSOCKET_PATH" $XRAY_WS_PATH $XRAY_CONFIG_PATH
 
 print_log "Replace default nginx config"
 if [ -e $NGINX_DEFAULT_CONFIG ]; then
-    rm $NGINX_DEFAULT_CONFIG
+    rm -f $NGINX_DEFAULT_CONFIG
 fi
 wget -O "$NGINX_DEFAULT_CONFIG.conf" $REPO_NGINX_CONFIG
 
