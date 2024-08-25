@@ -117,7 +117,7 @@ bash -c "$(curl -L $GIT_SCRIPT)" @ install -u root
 #     return 0
 # fi
 
-$XRAY_CONFIG_PATH="/usr/local/etc/xray/config.json"
+XRAY_CONFIG_PATH="/usr/local/etc/xray/config.json"
 
 while true; do
     print_log "Print your REAL domain name (example: mysite.com):"
