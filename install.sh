@@ -181,7 +181,7 @@ fi
 LETSENCRYPT_DOMAIN_CONF="/etc/letsencrypt/renewal/$YOUR_DOMAIN.conf"
 LETSENCRYPT_ADD_LINE="renew_hook = systemctl reload xray"
 
-if ! grep -Fxq $LETSENCRYPT_ADD_LINE $LETSENCRYPT_DOMAIN_CONF; then
+if ! grep -Fxq "$LETSENCRYPT_ADD_LINE" "$LETSENCRYPT_DOMAIN_CONF"; then
     echo "$LETSENCRYPT_ADD_LINE" >> "$LETSENCRYPT_DOMAIN_CONF"
 fi
 
