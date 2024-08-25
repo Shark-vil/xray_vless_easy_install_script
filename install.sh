@@ -1,6 +1,6 @@
 #!/bin/bash
 
-$ROOT_GIT_REPO=""
+$ROOT_GIT_REPO="https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master"
 REPO_XRAY_CONFIG="$ROOT_GIT_REPO/config/xray/config.json"
 REPO_NGINX_CONFIG="$ROOT_GIT_REPO/config/nginx/default"
 REPO_XRAY_CONFIG_VLESS="$ROOT_GIT_REPO/config/xray/user/vless.json"
