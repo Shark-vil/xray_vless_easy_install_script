@@ -153,6 +153,8 @@ XRAY_USER_UUID=$(cat /proc/sys/kernel/random/uuid)
 XRAY_WS_PATH="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z' | head -c 24)"
 NGINX_DEFAULT_CONFIG="/etc/nginx/sites-enabled/default"
 
+replace_text_in_file "LETSENCRYPT_FULLCHAIN" $LETSENCRYPT_FULLCHAIN $XRAY_CONFIG_PATH
+replace_text_in_file "LETSENCRYPT_PRIVKEY" $LETSENCRYPT_PRIVKEY $XRAY_CONFIG_PATH
 replace_text_in_file "SHADOWSOCKS_PORT" $XRAY_SHADOWSOCS_PORT $XRAY_CONFIG_PATH
 replace_text_in_file "PASSWORD" $XRAY_USER_PASSWORD_BASE64 $XRAY_CONFIG_PATH
 replace_text_in_file "CLIENT_UUID" $XRAY_USER_UUID $XRAY_CONFIG_PATH
