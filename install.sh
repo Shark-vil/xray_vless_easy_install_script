@@ -138,9 +138,6 @@ apt_install "certbot"
 print_log "Run git script '$XRAY_GIT_SCRIPT'"
 bash -c "$(curl -L $XRAY_GIT_SCRIPT)" @ install -u root
 
-systemctl stop nginx.service
-systemctl stop xray.service
-
 while true; do
     print_log "Print your REAL domain name (example: mysite.com):"
     read YOUR_DOMAIN < /dev/tty
@@ -237,8 +234,8 @@ replace_text_in_file "CLIENT_UUID" $XRAY_USER_UUID $XRAY_USER_CONFIG_DEST
 replace_text_in_file "WEBSOCKET_PATH" $XRAY_WS_PATH $XRAY_USER_CONFIG_DEST
 replace_text_in_file "DOMAIN_NAME" $YOUR_DOMAIN $XRAY_USER_CONFIG_DEST
 
-systemctl start nginx.service
-systemctl start xray.service
+systemctl restart nginx.service
+systemctl restart xray.service
 
 check_service "nginx"
 check_service "xray"
