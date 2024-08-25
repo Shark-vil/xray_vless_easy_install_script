@@ -96,6 +96,7 @@ if ! curl --head --silent --fail "$GIT_SCRIPT" > /dev/null; then
   return 0
 fi
 
+apt_install "ca-certificates"
 apt_install "wget"
 apt_install "git"
 # apt_install "docker"
@@ -152,7 +153,7 @@ while true; do
 done
 
 print_log "Installing SSL certificates"
-sudo certbot certonly --nginx --non-interactive --agree-tos --email $YOUR_EMAIL -d $YOUR_DOMAIN
+certbot certonly --nginx --non-interactive --agree-tos --email $YOUR_EMAIL -d $YOUR_DOMAIN
 
 $LETSENCRYPT_FULLCHAIN="/etc/letsencrypt/live/$YOUR_DOMAIN/fullchain.pem"
 $LETSENCRYPT_PRIVKEY="/etc/letsencrypt/live/$YOUR_DOMAIN/privkey.pem"
