@@ -35,3 +35,9 @@ bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_insta
 ```
 /root/shadowsocks.pass
 ```
+
+### FAQ
+* WebSocket does not work on the phone
+* * Try using the normal config ( *Cloudflare proxy needs to be turned off!* )
+* What application can I use?
+* * [Nekoray](https://github.com/MatsuriDayo/nekoray), [Hiddify](https://hiddify.com/) and etc.
