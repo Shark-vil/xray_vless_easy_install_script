@@ -172,7 +172,7 @@ while true; do
     fi
     if confirm_changes "Port: $XRAY_SHADOWSOCS_PORT. Is this the correct port?"; then
         break
-    done
+    fi
 done
 
 replace_text_in_file "%SHADOWSOCKS_PORT%" $XRAY_SHADOWSOCS_PORT $XRAY_CONFIG_PATH
