@@ -139,6 +139,7 @@ print_log "Run git script '$XRAY_GIT_SCRIPT'"
 bash -c "$(curl -L $XRAY_GIT_SCRIPT)" @ install -u root
 
 systemctl stop nginx.service
+systemctl stop xray.service
 
 check_service "nginx"
 check_service "xray"
@@ -202,7 +203,7 @@ done
 XRAY_USER_PASSWORD="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z0-9' | head -c 16)"
 XRAY_USER_PASSWORD_BASE64=$(echo -n "$XRAY_USER_PASSWORD" | base64)
 XRAY_USER_UUID=$(cat /proc/sys/kernel/random/uuid)
-XRAY_WS_PATH="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z' | head -c 24)"
+XRAY_WS_PATH="$(head -c 100 </dev/urandom | tr -dc 'a-z' | head -c 24)"
 
 replace_text_in_file "LETSENCRYPT_FULLCHAIN" $LETSENCRYPT_FULLCHAIN $XRAY_CONFIG_PATH
 replace_text_in_file "LETSENCRYPT_PRIVKEY" $LETSENCRYPT_PRIVKEY $XRAY_CONFIG_PATH
@@ -250,8 +251,12 @@ replace_text_in_file "CLIENT_UUID" $XRAY_USER_UUID $XRAY_USER_CONFIG_DEST
 replace_text_in_file "WEBSOCKET_PATH" $XRAY_WS_PATH $XRAY_USER_CONFIG_DEST
 replace_text_in_file "DOMAIN_NAME" $YOUR_DOMAIN $XRAY_USER_CONFIG_DEST
 
+journalctl --vacuum-time=1s -u xray
+systemctl restart systemd-journald
+
 systemctl start nginx.service
-systemctl reload xray.service
+systemctl start xray.service
+#rm -rf /var/log/journal/*
 
 check_service "nginx"
 check_service "xray"
