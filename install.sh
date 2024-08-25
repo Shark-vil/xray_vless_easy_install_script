@@ -81,10 +81,10 @@ replace_text_in_file() {
 }
 
 check_service() {
-    if ! systemctl list-units --type=service --all | grep -q "$1.service"; then
-        return 1
+    if systemctl list-units --type=service --all | grep -q "$1.service"; then
+        return 0
     fi
-    return 0
+    return 1
 }
 
 apt_update
@@ -122,7 +122,7 @@ while true; do
     print_log "Print your REAL domain name (example: mysite.com):"
     read YOUR_DOMAIN
 
-    if ! confirm_changes "Is this the correct domain?"; then
+    if confirm_changes "Is this the correct domain?"; then
         break
     fi
 
@@ -197,13 +197,13 @@ print_log "Select VLESS type:"
 print_log "1: Standard - direct connection to the server by domain"
 print_log "2: WebSocket - connect to the server by domain, BUT using Cloudflare proxy"
 while true; do
-    read $XRAY_SELECT_VLESS_TYPE_NUMBER
+    read XRAY_SELECT_VLESS_TYPE_NUMBER
     case "$XRAY_SELECT_VLESS_TYPE_NUMBER" in
-        "1")
+        1)
             XRAY_SELECT_VLESS_TYPE="def"
             break
             ;;
-        "2")
+        2)
             XRAY_SELECT_VLESS_TYPE="ws"
             break
             ;;
