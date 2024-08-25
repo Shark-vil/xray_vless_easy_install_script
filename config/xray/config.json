@@ -1,100 +1,99 @@
 {
-    "log": {
-      "loglevel": "info"
+  "log": {
+    "loglevel": "info"
+  },
+  "routing": {
+    "rules": [],
+    "domainStrategy": "AsIs"
+  },
+  "inbounds": [
+    {
+      "port": %SHADOWSOCKS_PORT%,
+      "tag": "ss",
+      "protocol": "shadowsocks",
+      "settings": {
+        "method": "2022-blake3-aes-128-gcm",
+        "password": "%PASSWORD%",
+        "network": "tcp,udp"
+      }
     },
-    "routing": {
-      "rules": [],
-      "domainStrategy": "AsIs"
-    },
-    "inbounds": [
-      {
-        "port": %SHADOWSOCKS_PORT%,
-        "tag": "ss",
-        "protocol": "shadowsocks",
-        "settings": {
-          "method": "2022-blake3-aes-128-gcm",
-          "password": "%PASSWORD%",
-          "network": "tcp,udp"
-        }
-      },
-      {
-        "port": 443,
-        "protocol": "vless",
-        "tag": "vless_tls",
-        "settings": {
-          "clients": [
-            {
-              "id": "%CLIENT_UUID%",
-              "email": "%CLIENT_MAIL%",
-              "flow": "xtls-rprx-vision"
-            }
-          ],
-          "decryption": "none",
-          "fallbacks": [
-            {
-              "path": "/%WEBSOCKET_PATH%",
-              "dest": "@vless-ws"
-            },
-            {
-              "dest": "8080"
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "tcp",
-          "security": "tls",
-          "tlsSettings": {
-            "alpn": [
-              "http/1.1",
-              "h2"
-            ],
-            "certificates": [
-              {
-                "certificateFile": "%LETSENCRYPT_FULLCHAIN%",
-                "keyFile": "%LETSENCRYPT_PRIVKEY%"
-              }
-            ]
+    {
+      "port": 443,
+      "protocol": "vless",
+      "tag": "vless_tls",
+      "settings": {
+        "clients": [
+          {
+            "id": "%CLIENT_UUID%",
+            "email": "%CLIENT_MAIL%",
+            "flow": "xtls-rprx-vision"
           }
-        },
-        "sniffing": {
-          "enabled": true,
-          "destOverride": [
-            "http",
-            "tls"
+        ],
+        "decryption": "none",
+        "fallbacks": [
+          {
+            "path": "/%WEBSOCKET_PATH%",
+            "dest": "@vless-ws"
+          },
+          {
+            "dest": "8080"
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "alpn": [
+            "http/1.1",
+            "h2"
+          ],
+          "certificates": [
+            {
+              "certificateFile": "%LETSENCRYPT_FULLCHAIN%",
+              "keyFile": "%LETSENCRYPT_PRIVKEY%"
+            }
           ]
         }
       },
-      {
-        "listen": "@vless-ws",
-        "protocol": "vless",
-        "tag": "vless_ws",
-        "settings": {
-          "clients": [
-            {
-                "id": "%CLIENT_UUID%",
-                "email": "%CLIENT_MAIL%"
-            }
-          ],
-          "decryption": "none"
-        },
-        "streamSettings": {
-          "network": "ws",
-          "security": "none",
-          "wsSettings": {
-            "path": "/%WEBSOCKET_PATH%"
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls"
+        ]
+      }
+    },
+    {
+      "listen": "@vless-ws",
+      "protocol": "vless",
+      "tag": "vless_ws",
+      "settings": {
+        "clients": [
+          {
+            "id": "%CLIENT_UUID%",
+            "email": "%CLIENT_MAIL%"
           }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+          "path": "/%WEBSOCKET_PATH%"
         }
       }
-    ],
-    "outbounds": [
-      {
-        "protocol": "freedom",
-        "tag": "direct"
-      },
-      {
-        "protocol": "blackhole",
-        "tag": "block"
-      }
-    ]
-  }
-  
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom",
+      "tag": "direct"
+    },
+    {
+      "protocol": "blackhole",
+      "tag": "block"
+    }
+  ]
+}
