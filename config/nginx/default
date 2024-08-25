@@ -1,0 +1,11 @@
+server {
+        listen 127.0.0.1:8080 default_server;
+        listen [::1]:8080 default_server;
+
+        server_name _;
+
+        location / {
+                auth_basic "Administrator";
+                auth_basic_user_file /dev/null;
+        }
+}

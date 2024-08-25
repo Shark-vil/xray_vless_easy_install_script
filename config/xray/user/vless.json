@@ -1,0 +1,17 @@
+{
+    "outbounds": [
+      {
+        "type": "vless", 
+        "tag": "vless-out",
+        "server": "%DOMAIN_NAME%",
+        "server_port": 443,
+        "uuid": "%CLIENT_UUID%",
+        "flow": "xtls-rprx-vision",
+        "tls": {
+          "enabled": true,
+          "insecure": false
+        }
+      }
+    ]
+  }
+  
