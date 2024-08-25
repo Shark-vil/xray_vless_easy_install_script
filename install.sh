@@ -32,13 +32,13 @@ apt_install() {
     apt-get install -y $1
 }
 
-check_domain() {
-    if dig +short "$1" > /dev/null; then
-        return 0
-    else
-        return 1
-    fi
-}
+# check_domain() {
+#     if dig +short "$1" > /dev/null; then
+#         return 0
+#     else
+#         return 1
+#     fi
+# }
 
 confirm_changes() {
     local prompt="$1"
@@ -98,41 +98,47 @@ fi
 
 apt_install "wget"
 apt_install "git"
-apt_install "docker"
+# apt_install "docker"
 apt_install "nginx"
 apt_install "certbot"
-apt_install "dig"
+# apt_install "dig"
 
 print_log "Run git script '$GIT_SCRIPT'"
 bash -c "$(curl -L $GIT_SCRIPT)" @ install -u root
 
-if ! check_service "nginx"; then
-    echo "Service nginx not registrred."
-    return 0
-fi
+# if ! check_service "nginx"; then
+#     echo "Service nginx not registrred."
+#     return 0
+# fi
 
-if ! check_service "xray"; then
-    echo "Service xray not registrred."
-    return 0
-fi
+# if ! check_service "xray"; then
+#     echo "Service xray not registrred."
+#     return 0
+# fi
 
 $XRAY_CONFIG_PATH="/usr/local/etc/xray/config.json"
-
-# while ! confirm_changes "Is this the correct domain?"; do
-#     echo "Domain not correct. Try again."
-#     read -p "Print your REAL domain name (example: mysite.com): " YOUR_DOMAIN
-# done
 
 while true; do
     print_log "Print your REAL domain name (example: mysite.com):"
     read YOUR_DOMAIN
 
-    if check_domain $YOUR_DOMAIN; then
+    if ! confirm_changes "Is this the correct domain?"; then
         break
     fi
 
-    print_error "$YOUR_DOMAIN domain not detected. Try again."
+    print_error "$YOUR_DOMAIN domain not correct. Try again."
 done
+
+# while true; do
+#     print_log "Print your REAL domain name (example: mysite.com):"
+#     read YOUR_DOMAIN
+
+#     if check_domain $YOUR_DOMAIN; then
+#         break
+#     fi
+
+#     print_error "$YOUR_DOMAIN domain not detected. Try again."
+# done
 
 while true; do
     print_log "Print your REAL email (example: mymail@gmail.com):"
