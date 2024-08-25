@@ -138,6 +138,11 @@ apt_install "certbot"
 print_log "Run git script '$XRAY_GIT_SCRIPT'"
 bash -c "$(curl -L $XRAY_GIT_SCRIPT)" @ install -u root
 
+systemctl stop nginx.service
+
+check_service "nginx"
+check_service "xray"
+
 while true; do
     print_log "Print your REAL domain name (example: mysite.com):"
     read YOUR_DOMAIN < /dev/tty
@@ -168,6 +173,13 @@ if [ -e $LETSENCRYPT_FULLCHAIN ] && [ -e $LETSENCRYPT_PRIVKEY ]; then
 else
     print_log "Installing SSL certificates"
     certbot certonly --standalone --non-interactive --agree-tos --email $YOUR_EMAIL -d $YOUR_DOMAIN
+fi
+
+LETSENCRYPT_DOMAIN_CONF="/etc/letsencrypt/renewal/$YOUR_DOMAIN.conf"
+LETSENCRYPT_ADD_LINE="renew_hook = systemctl reload xray"
+
+if ! grep -Fxq $LETSENCRYPT_ADD_LINE $LETSENCRYPT_DOMAIN_CONF; then
+    echo "$LETSENCRYPT_ADD_LINE" >> "$LETSENCRYPT_DOMAIN_CONF"
 fi
 
 wget -O $XRAY_CONFIG_PATH $REPO_XRAY_CONFIG
@@ -234,8 +246,8 @@ replace_text_in_file "CLIENT_UUID" $XRAY_USER_UUID $XRAY_USER_CONFIG_DEST
 replace_text_in_file "WEBSOCKET_PATH" $XRAY_WS_PATH $XRAY_USER_CONFIG_DEST
 replace_text_in_file "DOMAIN_NAME" $YOUR_DOMAIN $XRAY_USER_CONFIG_DEST
 
-systemctl restart nginx.service
-systemctl restart xray.service
+systemctl start nginx.service
+systemctl reload xray.service
 
 check_service "nginx"
 check_service "xray"
