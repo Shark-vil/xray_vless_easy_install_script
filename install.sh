@@ -1,10 +1,16 @@
 #!/bin/bash
 
+XRAY_GIT_SCRIPT="https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
 ROOT_GIT_REPO="https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master"
 REPO_XRAY_CONFIG="$ROOT_GIT_REPO/config/xray/config.json"
 REPO_NGINX_CONFIG="$ROOT_GIT_REPO/config/nginx/default"
 REPO_XRAY_CONFIG_VLESS="$ROOT_GIT_REPO/config/xray/user/vless.json"
 REPO_XRAY_CONFIG_VLESS_WS="$ROOT_GIT_REPO/config/xray/user/vless_ws.json"
+NGINX_DEFAULT_CONFIG_SRC="/etc/nginx/sites-available/default"
+NGINX_DEFAULT_CONFIG_LINK="/etc/nginx/sites-enabled/default"
+NGINX_NEW_CONFIG="/etc/nginx/sites-enabled/default.conf"
+XRAY_USER_CONFIG_DEST="/root/vless.json"
+XRAY_CONFIG_PATH="/usr/local/etc/xray/config.json"
 
 print_log() {
   local message="$1"
@@ -79,12 +85,38 @@ check_service() {
     return 1
 }
 
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --remove)
+            systemctl stop nginx.service
+            systemctl stop xray.service
+            if [ -e $NGINX_NEW_CONFIG ]; then
+                rm -f $NGINX_NEW_CONFIG
+            fi
+            if [ -e $NGINX_DEFAULT_CONFIG_SRC ]; then
+                link -s $NGINX_DEFAULT_CONFIG_SRC $NGINX_DEFAULT_CONFIG_LINK
+            fi
+            if [ -e $XRAY_USER_CONFIG_DEST ]; then
+                rm -f $XRAY_USER_CONFIG_DEST
+            fi
+            if [ -e $XRAY_CONFIG_PATH ]; then
+                rm -f $XRAY_CONFIG_PATH
+            fi
+            print_log "Remove git script '$XRAY_GIT_SCRIPT'"
+            bash -c "$(curl -L $XRAY_GIT_SCRIPT)" @ remove --purge
+            systemctl start nginx.service
+            return 0
+            ;;
+        *)
+            ;;
+    esac
+done
+
 apt_update
 apt_install "curl"
 
-GIT_SCRIPT="https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
-if ! curl --head --silent --fail "$GIT_SCRIPT" > /dev/null; then
-  echo "File $GIT_SCRIPT not found :("
+if ! curl --head --silent --fail "$XRAY_GIT_SCRIPT" > /dev/null; then
+  echo "File $XRAY_GIT_SCRIPT not found :("
   return 0
 fi
 
@@ -94,13 +126,11 @@ apt_install "git"
 apt_install "nginx"
 apt_install "certbot"
 
-print_log "Run git script '$GIT_SCRIPT'"
-bash -c "$(curl -L $GIT_SCRIPT)" @ install -u root
+print_log "Run git script '$XRAY_GIT_SCRIPT'"
+bash -c "$(curl -L $XRAY_GIT_SCRIPT)" @ install -u root
 
 systemctl stop nginx.service
 systemctl stop xray.service
-
-XRAY_CONFIG_PATH="/usr/local/etc/xray/config.json"
 
 while true; do
     print_log "Print your REAL domain name (example: mysite.com):"
@@ -151,7 +181,6 @@ XRAY_USER_PASSWORD="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z0-9' | head -c 1
 XRAY_USER_PASSWORD_BASE64=$(echo -n "$XRAY_USER_PASSWORD" | base64)
 XRAY_USER_UUID=$(cat /proc/sys/kernel/random/uuid)
 XRAY_WS_PATH="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z' | head -c 24)"
-NGINX_DEFAULT_CONFIG="/etc/nginx/sites-enabled/default"
 
 replace_text_in_file "LETSENCRYPT_FULLCHAIN" $LETSENCRYPT_FULLCHAIN $XRAY_CONFIG_PATH
 replace_text_in_file "LETSENCRYPT_PRIVKEY" $LETSENCRYPT_PRIVKEY $XRAY_CONFIG_PATH
@@ -162,10 +191,10 @@ replace_text_in_file "CLIENT_MAIL" $YOUR_EMAIL $XRAY_CONFIG_PATH
 replace_text_in_file "WEBSOCKET_PATH" $XRAY_WS_PATH $XRAY_CONFIG_PATH
 
 print_log "Replace default nginx config"
-if [ -e $NGINX_DEFAULT_CONFIG ]; then
-    rm -f $NGINX_DEFAULT_CONFIG
+if [ -e $NGINX_DEFAULT_CONFIG_LINK ]; then
+    rm -f $NGINX_DEFAULT_CONFIG_LINK
 fi
-wget -O "$NGINX_DEFAULT_CONFIG.conf" $REPO_NGINX_CONFIG
+wget -O $NGINX_NEW_CONFIG $REPO_NGINX_CONFIG
 
 print_log "Select VLESS type:"
 print_log "1: Standard - direct connection to the server by domain"
@@ -194,7 +223,6 @@ fi
 
 print_log "Select config: $XRAY_SELECT_USER_CONFIG"
 
-XRAY_USER_CONFIG_DEST="/root/vless.json"
 wget -O $XRAY_USER_CONFIG_DEST $XRAY_SELECT_USER_CONFIG
 replace_text_in_file "CLIENT_UUID" $XRAY_USER_UUID $XRAY_USER_CONFIG_DEST
 replace_text_in_file "WEBSOCKET_PATH" $XRAY_WS_PATH $XRAY_USER_CONFIG_DEST
