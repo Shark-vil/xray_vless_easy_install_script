@@ -185,10 +185,14 @@ fi
 wget -O $XRAY_CONFIG_PATH $REPO_XRAY_CONFIG
 
 while true; do
-    print_log "Print shadowsocks port (default: 22):"
+    print_log "Print shadowsocks port (default: 2121):"
     read XRAY_SHADOWSOCS_PORT < /dev/tty
     if ! is_number $XRAY_SHADOWSOCS_PORT; then
-        XRAY_SHADOWSOCS_PORT="22"
+        print_error "The port $XRAY_SHADOWSOCS_PORT is not number!"
+        XRAY_SHADOWSOCS_PORT="2121"
+    fi
+    if ss -tuln | grep -q ":$XRAY_SHADOWSOCS_PORT"; then
+        print_error "The port $XRAY_SHADOWSOCS_PORT is already in use"
     fi
     if confirm_changes "Port: $XRAY_SHADOWSOCS_PORT. Is this the correct port?"; then
         break
