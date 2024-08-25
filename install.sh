@@ -68,7 +68,7 @@ is_number() {
 }
 
 replace_text_in_file() {
-    sed -i "s/%$1%/$2/g" "$3"
+    sed -i "s|%$1%|$2|g" "$3"
     print_log "SET $1=$2 IN $3"
 }
 
