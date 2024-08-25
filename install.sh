@@ -1,7 +1,5 @@
 #!/bin/bash
 
-echo "TEST"
-
 ROOT_GIT_REPO="https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master"
 REPO_XRAY_CONFIG="$ROOT_GIT_REPO/config/xray/config.json"
 REPO_NGINX_CONFIG="$ROOT_GIT_REPO/config/nginx/default"
@@ -83,13 +81,13 @@ replace_text_in_file() {
 }
 
 check_service() {
-    if ! systemctl list-units --type=service --all | grep -q "${$1}.service"; then
+    if ! systemctl list-units --type=service --all | grep -q "$1.service"; then
         return 1
     fi
     return 0
 }
 
-apt_update()
+apt_update
 apt_install "curl"
 
 $GIT_SCRIPT="https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
