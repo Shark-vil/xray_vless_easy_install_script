@@ -95,7 +95,7 @@ while [[ $# -gt 0 ]]; do
                 rm -f $NGINX_NEW_CONFIG
                 print_log "Remove: '$NGINX_NEW_CONFIG'"
             fi
-            if [ -e $NGINX_DEFAULT_CONFIG_SRC ]; then
+            if [ -e $NGINX_DEFAULT_CONFIG_SRC ] && [ ! -e $NGINX_DEFAULT_CONFIG_LINK ]; then
                 link -s $NGINX_DEFAULT_CONFIG_SRC $NGINX_DEFAULT_CONFIG_LINK
                 print_log "Link: '$NGINX_DEFAULT_CONFIG_LINK'"
             fi
