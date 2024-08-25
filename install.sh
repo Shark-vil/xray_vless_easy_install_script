@@ -266,17 +266,15 @@ systemctl start xray.service
 check_service "nginx"
 check_service "xray"
 
-if [ -e $XRAY_USER_SHADOWSOCKS_PASS ]; then
-    rm -f $XRAY_USER_SHADOWSOCKS_PASS
+if [ ! -e $XRAY_USER_SHADOWSOCKS_PASS ]; then
+    touch $XRAY_USER_SHADOWSOCKS_PASS
 fi
-touch $XRAY_USER_SHADOWSOCKS_PASS $XRAY_USER_PASSWORD
+echo "$XRAY_USER_PASSWORD" > "$XRAY_USER_SHADOWSOCKS_PASS"
 
 print_log "Your user vless config:"
 print_log "---------------------"
 print_log "> ! SAVE PASSWORD ! <"
-echo ""
 print_log $XRAY_USER_PASSWORD
-echo ""
 print_log "---------------------"
 echo ""
 cat $XRAY_USER_CONFIG_DEST
