@@ -170,7 +170,7 @@ while true; do
     if ! is_number $XRAY_SHADOWSOCS_PORT; then
         XRAY_SHADOWSOCS_PORT="22"
     fi
-    while confirm_changes "Port: $XRAY_SHADOWSOCS_PORT. Is this the correct port?"; do
+    if confirm_changes "Port: $XRAY_SHADOWSOCS_PORT. Is this the correct port?"; then
         break
     done
 done
