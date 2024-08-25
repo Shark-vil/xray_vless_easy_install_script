@@ -76,7 +76,7 @@ is_number() {
 }
 
 replace_text_in_file() {
-    sed -i "s/%{$1}%/${$2}/g" "$3"
+    sed -i "s/%$1%/$2/g" "$3"
     print_log "SET $1=$2 IN $3"
 }
 
@@ -175,18 +175,18 @@ while true; do
     fi
 done
 
-replace_text_in_file "%SHADOWSOCKS_PORT%" $XRAY_SHADOWSOCS_PORT $XRAY_CONFIG_PATH
+replace_text_in_file "SHADOWSOCKS_PORT" $XRAY_SHADOWSOCS_PORT $XRAY_CONFIG_PATH
 
 XRAY_USER_PASSWORD="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z0-9' | head -c 16)"
 XRAY_USER_PASSWORD_BASE64=$(echo -n "$XRAY_USER_PASSWORD" | base64)
-replace_text_in_file "%PASSWORD%" $XRAY_USER_PASSWORD_BASE64 $XRAY_CONFIG_PATH
+replace_text_in_file "PASSWORD" $XRAY_USER_PASSWORD_BASE64 $XRAY_CONFIG_PATH
 
 XRAY_USER_UUID=$(cat /proc/sys/kernel/random/uuid)
-replace_text_in_file "%CLIENT_UUID%" $XRAY_USER_UUID $XRAY_CONFIG_PATH
-replace_text_in_file "%CLIENT_MAIL%" $YOUR_EMAIL $XRAY_CONFIG_PATH
+replace_text_in_file "CLIENT_UUID" $XRAY_USER_UUID $XRAY_CONFIG_PATH
+replace_text_in_file "CLIENT_MAIL" $YOUR_EMAIL $XRAY_CONFIG_PATH
 
 XRAY_WS_PATH="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z' | head -c 24)"
-replace_text_in_file "%WEBSOCKET_PATH%" $XRAY_WS_PATH $XRAY_CONFIG_PATH
+replace_text_in_file "WEBSOCKET_PATH" $XRAY_WS_PATH $XRAY_CONFIG_PATH
 
 print_log "Replace default nginx config"
 $NGINX_DEFAULT_CONFIG="/etc/nginx/sites-enabled/default"
