@@ -168,7 +168,7 @@ while true; do
     print_log "Print shadowsocks port (default: 22):"
     read XRAY_SHADOWSOCS_PORT < /dev/tty
     if ! is_number $XRAY_SHADOWSOCS_PORT; then
-        $XRAY_SHADOWSOCS_PORT="22"
+        XRAY_SHADOWSOCS_PORT="22"
     fi
     while confirm_changes "Port: $XRAY_SHADOWSOCS_PORT. Is this the correct port?"; do
         break
