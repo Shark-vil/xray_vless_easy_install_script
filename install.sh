@@ -203,6 +203,18 @@ replace_text_in_file "DOMAIN_NAME" $YOUR_DOMAIN $XRAY_USER_CONFIG_DEST
 systemctl start nginx.service
 systemctl start xray.service
 
+if service nginx status | grep -q "running"; then
+  print_log "The 'nginx' service is working correctly!"
+else
+  print_error The 'nginx' service is running with errors!
+fi
+
+if service xray status | grep -q "running"; then
+  print_log "The 'xray' service is working correctly!"
+else
+  print_error The 'xray' service is running with errors!
+fi
+
 print_log "Your user vless config:"
 print_log "----------------------"
 echo ""
