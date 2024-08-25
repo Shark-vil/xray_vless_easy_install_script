@@ -117,6 +117,9 @@ bash -c "$(curl -L $GIT_SCRIPT)" @ install -u root
 #     return 0
 # fi
 
+systemctl stop nginx.service
+systemctl stop xray.service
+
 XRAY_CONFIG_PATH="/usr/local/etc/xray/config.json"
 
 while true; do
@@ -153,7 +156,8 @@ while true; do
 done
 
 print_log "Installing SSL certificates"
-certbot certonly --nginx --non-interactive --agree-tos --email $YOUR_EMAIL -d $YOUR_DOMAIN
+certbot certonly --standalone --non-interactive --agree-tos --email $YOUR_EMAIL -d $YOUR_DOMAIN
+# certbot certonly --nginx --non-interactive --agree-tos --email $YOUR_EMAIL -d $YOUR_DOMAIN
 
 $LETSENCRYPT_FULLCHAIN="/etc/letsencrypt/live/$YOUR_DOMAIN/fullchain.pem"
 $LETSENCRYPT_PRIVKEY="/etc/letsencrypt/live/$YOUR_DOMAIN/privkey.pem"
@@ -184,15 +188,9 @@ replace_text_in_file "%CLIENT_MAIL%" $YOUR_EMAIL $XRAY_CONFIG_PATH
 XRAY_WS_PATH="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z' | head -c 24)"
 replace_text_in_file "%WEBSOCKET_PATH%" $XRAY_WS_PATH $XRAY_CONFIG_PATH
 
-systemctl stop nginx.service
-systemctl stop xray.service
-
 print_log "Replace default nginx config"
 $NGINX_DEFAULT_CONFIG="/etc/nginx/sites-enabled/default"
 wget -O $NGINX_DEFAULT_CONFIG $REPO_NGINX_CONFIG
-
-systemctl start nginx.service
-systemctl start xray.service
 
 print_log "Select VLESS type:"
 print_log "1: Standard - direct connection to the server by domain"
@@ -224,6 +222,9 @@ wget -O $XRAY_USER_CONFIG_DEST $XRAY_SELECT_USER_CONFIG
 replace_text_in_file "%CLIENT_UUID%" $XRAY_USER_UUID $XRAY_USER_CONFIG_DEST
 replace_text_in_file "%WEBSOCKET_PATH%" $XRAY_WS_PATH $XRAY_USER_CONFIG_DEST
 replace_text_in_file "%YOUR_DOMAIN%" $YOUR_DOMAIN $XRAY_USER_CONFIG_DEST
+
+systemctl start nginx.service
+systemctl start xray.service
 
 print_log "Your user vless config:"
 print_log "----------------------"
