@@ -184,15 +184,15 @@ replace_text_in_file "%CLIENT_MAIL%" $YOUR_EMAIL $XRAY_CONFIG_PATH
 XRAY_WS_PATH="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z' | head -c 24)"
 replace_text_in_file "%WEBSOCKET_PATH%" $XRAY_WS_PATH $XRAY_CONFIG_PATH
 
-service nginx stop
-service xray stop
+systemctl stop nginx.service
+systemctl stop xray.service
 
 print_log "Replace default nginx config"
 $NGINX_DEFAULT_CONFIG="/etc/nginx/sites-enabled/default"
 wget -O $NGINX_DEFAULT_CONFIG $REPO_NGINX_CONFIG
 
-service nginx restart
-service xray restart
+systemctl start nginx.service
+systemctl start xray.service
 
 print_log "Select VLESS type:"
 print_log "1: Standard - direct connection to the server by domain"
