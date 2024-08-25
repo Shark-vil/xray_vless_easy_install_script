@@ -23,12 +23,12 @@ print_error() {
 }
 
 apt_update() {
-    echo "Update packages"
+    print_log "Update packages"
     apt-get update
 }
 
 apt_install() {
-    echo "Insstall '$1' package"
+    print_log "Insstall '$1' package"
     apt-get install -y $1
 }
 
@@ -48,7 +48,7 @@ confirm_changes() {
         local green="\033[32m"
         local red="\033[31m"
         local reset="\033[0m"
-        echo -e "${prompt} (${green}Yes${reset}/${red}No${reset}): "
+        print_log "${prompt} (${green}Yes${reset}/${red}No${reset}): "
         read CONFIRM_RESPONSE
 
         CONFIRM_RESPONSE=$(echo "$CONFIRM_RESPONSE" | tr '[:upper:]' '[:lower:]')
@@ -90,7 +90,7 @@ check_service() {
 apt_update
 apt_install "curl"
 
-$GIT_SCRIPT="https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
+GIT_SCRIPT="https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
 if ! curl --head --silent --fail "$GIT_SCRIPT" > /dev/null; then
   echo "File $GIT_SCRIPT not found :("
   return 0
