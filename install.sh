@@ -196,7 +196,7 @@ XRAY_USER_CONFIG_DEST="/root/vless.json"
 wget -O $XRAY_USER_CONFIG_DEST $XRAY_SELECT_USER_CONFIG
 replace_text_in_file "CLIENT_UUID" $XRAY_USER_UUID $XRAY_USER_CONFIG_DEST
 replace_text_in_file "WEBSOCKET_PATH" $XRAY_WS_PATH $XRAY_USER_CONFIG_DEST
-replace_text_in_file "YOUR_DOMAIN" $YOUR_DOMAIN $XRAY_USER_CONFIG_DEST
+replace_text_in_file "DOMAIN_NAME" $YOUR_DOMAIN $XRAY_USER_CONFIG_DEST
 
 systemctl start nginx.service
 systemctl start xray.service
