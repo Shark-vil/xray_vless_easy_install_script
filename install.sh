@@ -32,14 +32,6 @@ apt_install() {
     apt-get install -y $1
 }
 
-# check_domain() {
-#     if dig +short "$1" > /dev/null; then
-#         return 0
-#     else
-#         return 1
-#     fi
-# }
-
 confirm_changes() {
     local prompt="$1"
     local response
@@ -99,23 +91,11 @@ fi
 apt_install "ca-certificates"
 apt_install "wget"
 apt_install "git"
-# apt_install "docker"
 apt_install "nginx"
 apt_install "certbot"
-# apt_install "dig"
 
 print_log "Run git script '$GIT_SCRIPT'"
 bash -c "$(curl -L $GIT_SCRIPT)" @ install -u root
-
-# if ! check_service "nginx"; then
-#     echo "Service nginx not registrred."
-#     return 0
-# fi
-
-# if ! check_service "xray"; then
-#     echo "Service xray not registrred."
-#     return 0
-# fi
 
 systemctl stop nginx.service
 systemctl stop xray.service
@@ -133,17 +113,6 @@ while true; do
     print_error "$YOUR_DOMAIN domain not correct. Try again."
 done
 
-# while true; do
-#     print_log "Print your REAL domain name (example: mysite.com):"
-#     read YOUR_DOMAIN
-
-#     if check_domain $YOUR_DOMAIN; then
-#         break
-#     fi
-
-#     print_error "$YOUR_DOMAIN domain not detected. Try again."
-# done
-
 while true; do
     print_log "Print your REAL email (example: mymail@gmail.com):"
     read YOUR_EMAIL < /dev/tty
@@ -155,12 +124,15 @@ while true; do
     print_error "Mail not correct. Try again."
 done
 
-print_log "Installing SSL certificates"
-certbot certonly --standalone --non-interactive --agree-tos --email $YOUR_EMAIL -d $YOUR_DOMAIN
-# certbot certonly --nginx --non-interactive --agree-tos --email $YOUR_EMAIL -d $YOUR_DOMAIN
+LETSENCRYPT_FULLCHAIN="/etc/letsencrypt/live/$YOUR_DOMAIN/fullchain.pem"
+LETSENCRYPT_PRIVKEY="/etc/letsencrypt/live/$YOUR_DOMAIN/privkey.pem"
 
-$LETSENCRYPT_FULLCHAIN="/etc/letsencrypt/live/$YOUR_DOMAIN/fullchain.pem"
-$LETSENCRYPT_PRIVKEY="/etc/letsencrypt/live/$YOUR_DOMAIN/privkey.pem"
+if [ -e $LETSENCRYPT_FULLCHAIN ] && [ -e $LETSENCRYPT_PRIVKEY ]; then
+    print_log "SSL certificates are already installed"
+else
+    print_log "Installing SSL certificates"
+    certbot certonly --standalone --non-interactive --agree-tos --email $YOUR_EMAIL -d $YOUR_DOMAIN
+fi
 
 wget -O $XRAY_CONFIG_PATH $REPO_XRAY_CONFIG
 
@@ -175,22 +147,23 @@ while true; do
     fi
 done
 
-replace_text_in_file "SHADOWSOCKS_PORT" $XRAY_SHADOWSOCS_PORT $XRAY_CONFIG_PATH
-
 XRAY_USER_PASSWORD="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z0-9' | head -c 16)"
 XRAY_USER_PASSWORD_BASE64=$(echo -n "$XRAY_USER_PASSWORD" | base64)
-replace_text_in_file "PASSWORD" $XRAY_USER_PASSWORD_BASE64 $XRAY_CONFIG_PATH
-
 XRAY_USER_UUID=$(cat /proc/sys/kernel/random/uuid)
+XRAY_WS_PATH="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z' | head -c 24)"
+$NGINX_DEFAULT_CONFIG="/etc/nginx/sites-enabled/default"
+
+replace_text_in_file "SHADOWSOCKS_PORT" $XRAY_SHADOWSOCS_PORT $XRAY_CONFIG_PATH
+replace_text_in_file "PASSWORD" $XRAY_USER_PASSWORD_BASE64 $XRAY_CONFIG_PATH
 replace_text_in_file "CLIENT_UUID" $XRAY_USER_UUID $XRAY_CONFIG_PATH
 replace_text_in_file "CLIENT_MAIL" $YOUR_EMAIL $XRAY_CONFIG_PATH
-
-XRAY_WS_PATH="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z' | head -c 24)"
 replace_text_in_file "WEBSOCKET_PATH" $XRAY_WS_PATH $XRAY_CONFIG_PATH
 
 print_log "Replace default nginx config"
-$NGINX_DEFAULT_CONFIG="/etc/nginx/sites-enabled/default"
-wget -O $NGINX_DEFAULT_CONFIG $REPO_NGINX_CONFIG
+if [ -e $NGINX_DEFAULT_CONFIG ]; then
+    rm $NGINX_DEFAULT_CONFIG
+fi
+wget -O "$NGINX_DEFAULT_CONFIG.conf" $REPO_NGINX_CONFIG
 
 print_log "Select VLESS type:"
 print_log "1: Standard - direct connection to the server by domain"
