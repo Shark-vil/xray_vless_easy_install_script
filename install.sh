@@ -96,7 +96,7 @@ while [[ $# -gt 0 ]]; do
                 print_log "Remove: '$NGINX_NEW_CONFIG'"
             fi
             if [ -e $NGINX_DEFAULT_CONFIG_SRC ] && [ ! -e $NGINX_DEFAULT_CONFIG_LINK ]; then
-                link -s $NGINX_DEFAULT_CONFIG_SRC $NGINX_DEFAULT_CONFIG_LINK
+                ln -s $NGINX_DEFAULT_CONFIG_SRC $NGINX_DEFAULT_CONFIG_LINK
                 print_log "Link: '$NGINX_DEFAULT_CONFIG_LINK'"
             fi
             if [ -e $XRAY_USER_CONFIG_DEST ]; then
