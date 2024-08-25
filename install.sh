@@ -49,7 +49,7 @@ confirm_changes() {
         local red="\033[31m"
         local reset="\033[0m"
         print_log "${prompt} (${green}Yes${reset}/${red}No${reset}): "
-        read CONFIRM_RESPONSE
+        read CONFIRM_RESPONSE < /dev/tty
 
         CONFIRM_RESPONSE=$(echo "$CONFIRM_RESPONSE" | tr '[:upper:]' '[:lower:]')
 
@@ -121,7 +121,7 @@ XRAY_CONFIG_PATH="/usr/local/etc/xray/config.json"
 
 while true; do
     print_log "Print your REAL domain name (example: mysite.com):"
-    read YOUR_DOMAIN
+    read YOUR_DOMAIN < /dev/tty
 
     if confirm_changes "Is this the correct domain?"; then
         break
@@ -143,7 +143,7 @@ done
 
 while true; do
     print_log "Print your REAL email (example: mymail@gmail.com):"
-    read YOUR_EMAIL
+    read YOUR_EMAIL < /dev/tty
 
     if confirm_changes "Is this the correct mail?"; then
         break
@@ -162,7 +162,7 @@ wget -O $XRAY_CONFIG_PATH $REPO_XRAY_CONFIG
 
 while true; do
     print_log "Print shadowsocks port (default: 22):"
-    read XRAY_SHADOWSOCS_PORT
+    read XRAY_SHADOWSOCS_PORT < /dev/tty
     if ! is_number $XRAY_SHADOWSOCS_PORT; do
         $XRAY_SHADOWSOCS_PORT="22"
     done
@@ -198,7 +198,7 @@ print_log "Select VLESS type:"
 print_log "1: Standard - direct connection to the server by domain"
 print_log "2: WebSocket - connect to the server by domain, BUT using Cloudflare proxy"
 while true; do
-    read XRAY_SELECT_VLESS_TYPE_NUMBER
+    read XRAY_SELECT_VLESS_TYPE_NUMBER < /dev/tty
     case "$XRAY_SELECT_VLESS_TYPE_NUMBER" in
         1)
             XRAY_SELECT_VLESS_TYPE="def"
