@@ -203,7 +203,9 @@ systemctl start xray.service
 
 print_log "Your user vless config:"
 print_log "----------------------"
+echo ""
 cat $XRAY_USER_CONFIG_DEST
+echo ""
 print_log "----------------------"
 
 print_log "Config path: $XRAY_USER_CONFIG_DEST"
