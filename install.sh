@@ -202,10 +202,10 @@ while true; do
     fi
 done
 
-XRAY_USER_PASSWORD="$(head -c 100 </dev/urandom | tr -dc 'A-Za-z0-9' | head -c 16)"
+XRAY_USER_PASSWORD="$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 18)"
 XRAY_USER_PASSWORD_BASE64=$(echo -n "$XRAY_USER_PASSWORD" | base64)
 XRAY_USER_UUID=$(cat /proc/sys/kernel/random/uuid)
-XRAY_WS_PATH="$(head -c 100 </dev/urandom | tr -dc 'a-z' | head -c 24)"
+XRAY_WS_PATH="$(tr -dc 'a-z' < /dev/urandom | head -c 24)"
 
 replace_text_in_file "LETSENCRYPT_FULLCHAIN" $LETSENCRYPT_FULLCHAIN $XRAY_CONFIG_PATH
 replace_text_in_file "LETSENCRYPT_PRIVKEY" $LETSENCRYPT_PRIVKEY $XRAY_CONFIG_PATH
