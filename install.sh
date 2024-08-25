@@ -256,12 +256,21 @@ systemctl reload xray.service
 check_service "nginx"
 check_service "xray"
 
+echo "" >> "$XRAY_USER_CONFIG_DEST"
+echo "SHADOWSOCKS PASSWORD:" >> "$XRAY_USER_CONFIG_DEST"
+echo "$XRAY_USER_PASSWORD" >> "$XRAY_USER_CONFIG_DEST"
+
 print_log "Your user vless config:"
-print_log "----------------------"
+print_log "---------------------"
+print_log "> ! SAVE PASSWORD ! <"
+echo ""
+print_log $XRAY_USER_PASSWORD
+echo ""
+print_log "---------------------"
 echo ""
 cat $XRAY_USER_CONFIG_DEST
 echo ""
-print_log "----------------------"
+print_log "---------------------"
 
 print_log "Config path: $XRAY_USER_CONFIG_DEST"
 print_log "If you need get info, print: cat $XRAY_USER_CONFIG_DEST"
