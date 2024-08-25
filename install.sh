@@ -10,6 +10,7 @@ NGINX_DEFAULT_CONFIG_SRC="/etc/nginx/sites-available/default"
 NGINX_DEFAULT_CONFIG_LINK="/etc/nginx/sites-enabled/default"
 NGINX_NEW_CONFIG="/etc/nginx/sites-enabled/default.conf"
 XRAY_USER_CONFIG_DEST="/root/vless.json"
+XRAY_USER_SHADOWSOCKS_PASS="/root/shadowsocks.pass"
 XRAY_CONFIG_PATH="/usr/local/etc/xray/config.json"
 
 print_log() {
@@ -94,6 +95,10 @@ while [[ $# -gt 0 ]]; do
             if [ -e $NGINX_NEW_CONFIG ]; then
                 rm -f $NGINX_NEW_CONFIG
                 print_log "Remove: '$NGINX_NEW_CONFIG'"
+            fi
+            if [ -e $XRAY_USER_SHADOWSOCKS_PASS ]; then
+                rm -f $XRAY_USER_SHADOWSOCKS_PASS
+                print_log "Remove: '$XRAY_USER_SHADOWSOCKS_PASS'"
             fi
             if [ -e $NGINX_DEFAULT_CONFIG_SRC ] && [ ! -e $NGINX_DEFAULT_CONFIG_LINK ]; then
                 ln -s $NGINX_DEFAULT_CONFIG_SRC $NGINX_DEFAULT_CONFIG_LINK
@@ -261,10 +266,10 @@ systemctl start xray.service
 check_service "nginx"
 check_service "xray"
 
-echo "" >> "$XRAY_USER_CONFIG_DEST"
-echo "" >> "$XRAY_USER_CONFIG_DEST"
-echo "SHADOWSOCKS PASSWORD:" >> "$XRAY_USER_CONFIG_DEST"
-echo "$XRAY_USER_PASSWORD" >> "$XRAY_USER_CONFIG_DEST"
+if [ -e $XRAY_USER_SHADOWSOCKS_PASS ]; then
+    rm -f $XRAY_USER_SHADOWSOCKS_PASS
+fi
+touch $XRAY_USER_SHADOWSOCKS_PASS $XRAY_USER_PASSWORD
 
 print_log "Your user vless config:"
 print_log "---------------------"
@@ -277,10 +282,12 @@ echo ""
 cat $XRAY_USER_CONFIG_DEST
 echo ""
 print_log "---------------------"
-
 print_log "Config path: $XRAY_USER_CONFIG_DEST"
 print_log "If you need get info, print: cat $XRAY_USER_CONFIG_DEST"
-
+print_log "---------------------"
+print_log "Shadowsocks password path: $XRAY_USER_SHADOWSOCKS_PASS"
+print_log "If you need get shadowsocks password, print: cat $XRAY_USER_SHADOWSOCKS_PASS"
+print_log "---------------------"
 print_log "@+@+@+@+@+@+@+@+@+@+@"
 print_log "Allow installed!"
 print_log "@+@+@+@+@+@+@+@+@+@+@"
