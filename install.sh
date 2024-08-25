@@ -262,6 +262,7 @@ check_service "nginx"
 check_service "xray"
 
 echo "" >> "$XRAY_USER_CONFIG_DEST"
+echo "" >> "$XRAY_USER_CONFIG_DEST"
 echo "SHADOWSOCKS PASSWORD:" >> "$XRAY_USER_CONFIG_DEST"
 echo "$XRAY_USER_PASSWORD" >> "$XRAY_USER_CONFIG_DEST"
 
