@@ -33,7 +33,7 @@ check_service() {
     if systemctl is-active --quiet $1; then
         print_log "The '$1' service is working correctly!"
     else
-        print_error The '$1' service is running with errors!
+        print_error "The '$1' service is running with errors!"
     fi
 }
 
@@ -145,9 +145,6 @@ bash -c "$(curl -L $XRAY_GIT_SCRIPT)" @ install -u root
 
 systemctl stop nginx.service
 systemctl stop xray.service
-
-check_service "nginx"
-check_service "xray"
 
 while true; do
     print_log "Print your REAL domain name (example: mysite.com):"
