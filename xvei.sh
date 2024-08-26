@@ -18,6 +18,7 @@ CONFIG_VLESS_LINK_CLIENT_PATH="$CONFIG_DIST_PATH/vless_client_link.txt"
 CONFIG_SHADOWSOCKS_PASSWORD_PATH="$CONFIG_DIST_PATH/shadowsocks_password.txt"
 CONFIG_SHADOWSOCKS_LINK_CLIENT_PATH="$CONFIG_DIST_PATH/shadowsocks_client_link.txt"
 XRAY_CONFIG_PATH="/usr/local/etc/xray/config.json"
+XRAY_RENEW_CONFIG="0"
 
 print_log() {
   local message="$1"
@@ -308,23 +309,25 @@ remove_xray() {
 }
 
 install_xray() {
-    apt_update
-    apt_install "curl"
+    if [ "$XRAY_RENEW_CONFIG" = "0" ]; then
+        apt_update
+        apt_install "curl"
 
-    if ! curl --head --silent --fail "$XRAY_GIT_SCRIPT" > /dev/null; then
-    echo "File $XRAY_GIT_SCRIPT not found :("
-    return 0
+        if ! curl --head --silent --fail "$XRAY_GIT_SCRIPT" > /dev/null; then
+            echo "File $XRAY_GIT_SCRIPT not found :("
+            return 0
+        fi
+
+        apt_install "ca-certificates"
+        apt_install "wget"
+        apt_install "git"
+        apt_install "nginx"
+        apt_install "certbot"
+        apt_install "qrencode"
+
+        print_log "Run git script '$XRAY_GIT_SCRIPT'"
+        bash -c "$(curl -L $XRAY_GIT_SCRIPT)" @ install -u root
     fi
-
-    apt_install "ca-certificates"
-    apt_install "wget"
-    apt_install "git"
-    apt_install "nginx"
-    apt_install "certbot"
-    apt_install "qrencode"
-
-    print_log "Run git script '$XRAY_GIT_SCRIPT'"
-    bash -c "$(curl -L $XRAY_GIT_SCRIPT)" @ install -u root
 
     systemctl stop nginx.service
     systemctl stop xray.service
@@ -354,14 +357,6 @@ install_xray() {
         $CONFIG_SHADOWSOCKS_PASSWORD_PATH \
         $VALUE_XRAY_USER_PASSWORD
 
-    write_text_in_file \
-        $CONFIG_SHADOWSOCKS_LINK_CLIENT_PATH \
-        $VALUE_XRAY_SHADOWSOCKS_CONNECT
-
-    # write_text_in_file \
-    #     $CONFIG_VLESS_LINK_CLIENT_PATH \
-    #     $VALUE_XRAY_VLESS_CONNECT
-
     print_result_install
 }
 
@@ -370,6 +365,8 @@ print_help() {
     print_log "--help - Print help info"
     print_log "--install - Installing Xray"
     print_log "--remove - Deletes Xray"
+    print_log "--reinstall - Reinstalls all configs and services"
+    print_log "--renew - Reinstalls ONLY configuration files, without reinstalling services"
     print_log "--vless-qr - Outputs the Vless connection code to the terminal"
     print_log "--shadowsocks-qr - Outputs the Shadowsocks connection code to the terminal"
 }
@@ -381,6 +378,16 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         --install)
+            install_xray
+            exit 0
+            ;;
+        --reinstall)
+            remove_xray
+            install_xray
+            exit 0
+            ;;
+        --renew)
+            XRAY_RENEW_CONFIG="1"
             install_xray
             exit 0
             ;;
