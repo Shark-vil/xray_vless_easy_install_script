@@ -1,5 +1,7 @@
 # XRay Vless Easy Install Script
 
+## [Документация на русском](./RU.md)
+
 ## This script uses another script internally:
 ### [XTLS/Xray-install](https://github.com/XTLS/Xray-install/raw/main/install-release.sh)
 
@@ -8,6 +10,8 @@ It will automatically install “Nginx”, and set up a configuration file for �
 
 ## Attention!
 **You must buy, or find a free DOMAIN NAME (example.com)**
+
+P.s. [dnsexit](https://dnsexit.com/domains/free-second-level-domains/) - It seems this site gives you the opportunity to register a domain for free. It is true that the free period of use is 1 year.
 
 ## Arguments:
 * --help - Print help info
@@ -147,4 +151,4 @@ echo $(cat /$HOME/xray_eis/vless_client_config.json)
 * [v2rayNG (GitHub)](https://github.com/2dust/v2rayNG/releases/latest) *I recommend it*
 * * [Android](https://play.google.com/store/apps/details?id=com.v2ray.ang)
 
-*P.s. Personally, I'm having trouble with **Hiddify** on my **Android** device. I recommend using “**v2rayNG**”. On **Windows** - **Hiddify** works fine!*
+*P.s. Personally, I'm having trouble with **Hiddify** on my **Android** device. I recommend using **v2rayNG**. On **Windows** - **Hiddify** works fine!*
