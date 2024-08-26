@@ -327,7 +327,7 @@ install_xray() {
 
 print_help() {
     print_log "Arguments:"
-    print_log "--helpt - Print help info"
+    print_log "--help - Print help info"
     print_log "--install - Installing Xray"
     print_log "--remove - Deletes Xray"
     print_log "--vless-qr - Outputs the Vless connection code to the terminal"
