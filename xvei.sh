@@ -284,21 +284,17 @@ print_result_install() {
 remove_xray() {
     systemctl stop nginx.service
     systemctl stop xray.service
-    if [ -e $NGINX_NEW_CONFIG ]; then
-        rm -f $NGINX_NEW_CONFIG
-        print_log "Remove: '$NGINX_NEW_CONFIG'"
-    fi
     if [ -e $CONFIG_DIST_PATH ]; then
         rm -rf $CONFIG_DIST_PATH
         print_log "Remove: '$CONFIG_DIST_PATH'"
     fi
+    if [ -e $NGINX_NEW_CONFIG ]; then
+        rm -f $NGINX_NEW_CONFIG
+        print_log "Remove: '$NGINX_NEW_CONFIG'"
+    fi
     if [ -e $NGINX_DEFAULT_CONFIG_SRC ] && [ ! -e $NGINX_DEFAULT_CONFIG_LINK ]; then
         ln -s $NGINX_DEFAULT_CONFIG_SRC $NGINX_DEFAULT_CONFIG_LINK
         print_log "Link: '$NGINX_DEFAULT_CONFIG_LINK'"
-    fi
-    if [ -e $XRAY_USER_CONFIG_DEST ]; then
-        rm -f $XRAY_USER_CONFIG_DEST
-        print_log "Remove: '$XRAY_USER_CONFIG_DEST'"
     fi
     if [ -e $XRAY_CONFIG_PATH ]; then
         rm -f $XRAY_CONFIG_PATH
