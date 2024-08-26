@@ -6,6 +6,9 @@ REPO_XRAY_CONFIG="$ROOT_GIT_REPO/config/xray/config.json"
 REPO_NGINX_CONFIG="$ROOT_GIT_REPO/config/nginx/default"
 REPO_XRAY_CONFIG_VLESS="$ROOT_GIT_REPO/config/xray/user/vless.json"
 REPO_XRAY_CONFIG_VLESS_WS="$ROOT_GIT_REPO/config/xray/user/vless_ws.json"
+REPO_XRAY_CONFIG_VLESS_LINK="$ROOT_GIT_REPO/config/xray/user/vless_link.txt"
+REPO_XRAY_CONFIG_VLESS_LINK_WS="$ROOT_GIT_REPO/config/xray/user/vless_ws_link.txt"
+REPO_XRAY_CONFIG_SHADOWSOCKS_LINK="$ROOT_GIT_REPO/config/xray/user/shadowsocks_link.txt"
 NGINX_DEFAULT_CONFIG_SRC="/etc/nginx/sites-available/default"
 NGINX_DEFAULT_CONFIG_LINK="/etc/nginx/sites-enabled/default"
 NGINX_NEW_CONFIG="/etc/nginx/sites-enabled/default.conf"
@@ -181,8 +184,6 @@ xray_set_vless_config_type() {
     local select_type_number
     local select_type
     
-    VALUE_XRAY_SHADOWSOCKS_CONNECT="ss://2022-blake3-aes-128-gcm:$VALUE_XRAY_USER_PASSWORD_BASE64@$(curl -s ifconfig.me):$VALUE_XRAY_SHADOWSOCKS_PORT#Shadowsocks"
-
     print_log "Select VLESS type:"
     print_log "1: Standard - direct connection to the server by domain"
     print_log "2: WebSocket - connect to the server by domain, BUT using Cloudflare proxy"
@@ -192,12 +193,10 @@ xray_set_vless_config_type() {
         case "$select_type_number" in
             1)
                 select_type="def"
-                VALUE_XRAY_VLESS_CONNECT="vless://$VALUE_XRAY_USER_UUID@$VALUE_YOUR_DOMAIN:443?security=tls&fp=chrome&type=tcp&flow=xtls-rprx-vision&encryption=none#Vless"
                 break
                 ;;
             2)
                 select_type="ws"
-                VALUE_XRAY_VLESS_CONNECT="vless://$VALUE_XRAY_USER_UUID@$VALUE_YOUR_DOMAIN:443?security=tls&fp=chrome&type=ws&path=$VALUE_XRAY_WS_PATH&host=$VALUE_YOUR_DOMAIN&encryption=none#Vless WS"
                 break
                 ;;
             *)
@@ -207,9 +206,24 @@ xray_set_vless_config_type() {
 
     if [ "$select_type" = "ws" ]; then
         VALUE_XRAY_SELECT_USER_CONFIG=$REPO_XRAY_CONFIG_VLESS_WS
+        wget -O $CONFIG_VLESS_LINK_CLIENT_PATH $REPO_XRAY_CONFIG_VLESS_LINK
     else
         VALUE_XRAY_SELECT_USER_CONFIG=$REPO_XRAY_CONFIG_VLESS
+        wget -O $CONFIG_VLESS_LINK_CLIENT_PATH $REPO_XRAY_CONFIG_VLESS_LINK_WS
     fi
+
+    replace_text_in_file "CLIENT_UUID" $VALUE_XRAY_USER_UUID $CONFIG_VLESS_LINK_CLIENT_PATH
+    replace_text_in_file "WEBSOCKET_PATH" $VALUE_XRAY_WS_PATH $CONFIG_VLESS_LINK_CLIENT_PATH
+    replace_text_in_file "DOMAIN_NAME" $VALUE_YOUR_DOMAIN $CONFIG_VLESS_LINK_CLIENT_PATH
+
+    wget -O $CONFIG_SHADOWSOCKS_LINK_CLIENT_PATH $REPO_XRAY_CONFIG_SHADOWSOCKS_LINK
+
+    replace_text_in_file "PASSWORD" $VALUE_XRAY_USER_PASSWORD_BASE64 $CONFIG_SHADOWSOCKS_LINK_CLIENT_PATH
+    replace_text_in_file "SERVER_IP" $(curl -s ifconfig.me) $CONFIG_SHADOWSOCKS_LINK_CLIENT_PATH
+    replace_text_in_file "SHADOWSOCKS_PORT" $VALUE_XRAY_SHADOWSOCKS_PORT $CONFIG_SHADOWSOCKS_LINK_CLIENT_PATH
+
+    VALUE_XRAY_VLESS_CONNECT=$(cat $CONFIG_VLESS_LINK_CLIENT_PATH)
+    VALUE_XRAY_SHADOWSOCKS_CONNECT=$(cat $CONFIG_SHADOWSOCKS_LINK_CLIENT_PATH)
 
     print_log "Select config: $VALUE_XRAY_SELECT_USER_CONFIG"
 }
@@ -267,6 +281,36 @@ print_result_install() {
     print_log "@+@+@+@+@+@+@+@+@+@+@"
 }
 
+remove_xray() {
+    systemctl stop nginx.service
+    systemctl stop xray.service
+    if [ -e $NGINX_NEW_CONFIG ]; then
+        rm -f $NGINX_NEW_CONFIG
+        print_log "Remove: '$NGINX_NEW_CONFIG'"
+    fi
+    if [ -e $CONFIG_DIST_PATH ]; then
+        rm -rf $CONFIG_DIST_PATH
+        print_log "Remove: '$CONFIG_DIST_PATH'"
+    fi
+    if [ -e $NGINX_DEFAULT_CONFIG_SRC ] && [ ! -e $NGINX_DEFAULT_CONFIG_LINK ]; then
+        ln -s $NGINX_DEFAULT_CONFIG_SRC $NGINX_DEFAULT_CONFIG_LINK
+        print_log "Link: '$NGINX_DEFAULT_CONFIG_LINK'"
+    fi
+    if [ -e $XRAY_USER_CONFIG_DEST ]; then
+        rm -f $XRAY_USER_CONFIG_DEST
+        print_log "Remove: '$XRAY_USER_CONFIG_DEST'"
+    fi
+    if [ -e $XRAY_CONFIG_PATH ]; then
+        rm -f $XRAY_CONFIG_PATH
+        print_log "Remove: '$XRAY_CONFIG_PATH'"
+    fi
+    print_log "Remove git script '$XRAY_GIT_SCRIPT'"
+    bash -c "$(curl -L $XRAY_GIT_SCRIPT)" @ remove --purge
+    systemctl start nginx.service
+    print_log "Start nginx service"
+    check_service "nginx"
+}
+
 install_xray() {
     apt_update
     apt_install "curl"
@@ -318,9 +362,9 @@ install_xray() {
         $CONFIG_SHADOWSOCKS_LINK_CLIENT_PATH \
         $VALUE_XRAY_SHADOWSOCKS_CONNECT
 
-    write_text_in_file \
-        $CONFIG_VLESS_LINK_CLIENT_PATH \
-        $VALUE_XRAY_VLESS_CONNECT
+    # write_text_in_file \
+    #     $CONFIG_VLESS_LINK_CLIENT_PATH \
+    #     $VALUE_XRAY_VLESS_CONNECT
 
     print_result_install
 }
@@ -361,33 +405,7 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         --remove)
-            systemctl stop nginx.service
-            systemctl stop xray.service
-            if [ -e $NGINX_NEW_CONFIG ]; then
-                rm -f $NGINX_NEW_CONFIG
-                print_log "Remove: '$NGINX_NEW_CONFIG'"
-            fi
-            if [ -e $CONFIG_DIST_PATH ]; then
-                rm -rf $CONFIG_DIST_PATH
-                print_log "Remove: '$CONFIG_DIST_PATH'"
-            fi
-            if [ -e $NGINX_DEFAULT_CONFIG_SRC ] && [ ! -e $NGINX_DEFAULT_CONFIG_LINK ]; then
-                ln -s $NGINX_DEFAULT_CONFIG_SRC $NGINX_DEFAULT_CONFIG_LINK
-                print_log "Link: '$NGINX_DEFAULT_CONFIG_LINK'"
-            fi
-            if [ -e $XRAY_USER_CONFIG_DEST ]; then
-                rm -f $XRAY_USER_CONFIG_DEST
-                print_log "Remove: '$XRAY_USER_CONFIG_DEST'"
-            fi
-            if [ -e $XRAY_CONFIG_PATH ]; then
-                rm -f $XRAY_CONFIG_PATH
-                print_log "Remove: '$XRAY_CONFIG_PATH'"
-            fi
-            print_log "Remove git script '$XRAY_GIT_SCRIPT'"
-            bash -c "$(curl -L $XRAY_GIT_SCRIPT)" @ remove --purge
-            systemctl start nginx.service
-            print_log "Start nginx service"
-            check_service "nginx"
+            remove_xray
             exit 0
             ;;
         *)
