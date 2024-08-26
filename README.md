@@ -77,80 +77,74 @@ echo $(cat /usr/local/etc/xray/config.json)
 
 ### Vless clinet config
 ```
-/root/xray_eis/vless_client_config.json
-```
-```
 /$HOME/xray_eis/vless_client_config.json
 ```
 
 #### Print file content
 ```bash
-cat /root/xray_eis/vless_client_config.json
+cat /$HOME/xray_eis/vless_client_config.json
 ```
 ```bash
-echo $(cat /root/xray_eis/vless_client_config.json)
+echo $(cat /$HOME/xray_eis/vless_client_config.json)
 ```
 
 ### Vless client connect string
-```
-/root/xray_eis/vless_client_link.txt
-```
 ```
 /$HOME/xray_eis/vless_client_link.txt
 ```
 
 #### Print file content
 ```bash
-cat /root/xray_eis/vless_client_link.txt
+cat /$HOME/xray_eis/vless_client_link.txt
 ```
 ```bash
-echo $(cat /root/xray_eis/vless_client_link.txt)
+echo $(cat /$HOME/xray_eis/vless_client_link.txt)
 ```
 
 ### Shadowsocks client connect string
-```
-/root/xray_eis/shadowsocks_client_link.txt
-```
 ```
 /$HOME/xray_eis/shadowsocks_client_link.txt
 ```
 
 #### Print file content
 ```bash
-cat /root/xray_eis/shadowsocks_client_link.txt
+cat /$HOME/xray_eis/shadowsocks_client_link.txt
 ```
 ```bash
-echo $(cat /root/xray_eis/shadowsocks_client_link.txt)
+echo $(cat /$HOME/xray_eis/shadowsocks_client_link.txt)
 ```
 
 ### Client shadowsocks password
-```
-/root/xray_eis/shadowsocks_password.txt
-```
 ```
 /$HOME/xray_eis/shadowsocks_password.txt
 ```
 
 #### Print file content
 ```bash
-cat /root/xray_eis/shadowsocks_password.txt
+cat /$HOME/xray_eis/shadowsocks_password.txt
 ```
 ```bash
-echo $(cat /root/xray_eis/shadowsocks_password.txt)
+echo $(cat /$HOME/xray_eis/shadowsocks_password.txt)
 ```
 
-### FAQ
-#### WebSocket does not work on the phone
-Try using the normal config ( *Cloudflare proxy needs to be turned off!* )
+## FAQ
+* I can't connect to the session.
+* * Make sure your server is not closed by a CDN (For example: Сloudflare Proxied). In this case you will only have to use Vless WebSocket or Shadowsocks connection. If the domain returns the real IP of your server - you can use any type of connection.
+---
+* I paste the text to connect into the app, but nothing works.
+* * Some applications may not support **vless://** and **ss://** references. In this case, you will need to use the **full configuration file**. You can get it by invoking the command in the terminal after installation:
+```bash
+echo $(cat /$HOME/xray_eis/vless_client_config.json)
+```
 
-#### What application can I use?
+## What application can I use?
+* [Nekoray (GitHub)](https://github.com/MatsuriDayo/nekoray/releases/latest) *I recommend it*
 * [Qv2ray (GitHub)](https://github.com/Qv2ray/Qv2ray/releases/latest)
-* [Nekoray (GitHub)](https://github.com/MatsuriDayo/nekoray/releases/latest)
 * [Hiddify](https://hiddify.com/) - Configuration files only! **vless://** & **ss://** may not process completely!
 * * [Android](https://play.google.com/store/apps/details?id=app.hiddify.com)
 * * [Windows](https://apps.microsoft.com/detail/9pdfnl3qv2s5)
 * * [Other](https://app.hiddify.com/)
-* [v2rayNG (GitHub)](https://github.com/2dust/v2rayNG/releases/latest)
+* [v2rayNG (GitHub)](https://github.com/2dust/v2rayNG/releases/latest) *I recommend it*
 * * [Android](https://play.google.com/store/apps/details?id=com.v2ray.ang)
 
 *P.s. Personally, I'm having trouble with **Hiddify** on my **Android** device. I recommend using “**v2rayNG**”. On **Windows** - **Hiddify** works fine!*
