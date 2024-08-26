@@ -1,0 +1,1 @@
+vless://%CLIENT_UUID%@%DOMAIN_NAME%:443?security=tls&fp=chrome&type=ws&path=%WEBSOCKET_PATH%&host=%DOMAIN_NAME%&encryption=none#Vless WS

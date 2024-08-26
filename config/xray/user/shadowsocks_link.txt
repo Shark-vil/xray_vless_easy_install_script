@@ -1,0 +1,1 @@
+ss://2022-blake3-aes-128-gcm:%PASSWORD%@%SERVER_IP%:%SHADOWSOCKS_PORT%#Shadowsocks
