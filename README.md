@@ -13,6 +13,8 @@ It will automatically install “Nginx”, and set up a configuration file for �
 * --help - Print help info
 * --install - Installing Xray
 * --remove - Deletes Xray
+* --reinstall - Reinstalls all configs and services
+* --renew - Reinstalls ONLY configuration files, without reinstalling services
 * --vless-qr - Outputs the Vless connection code to the terminal
 * --shadowsocks-qr - Outputs the Shadowsocks connection code to the terminal
 
@@ -27,6 +29,16 @@ bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_insta
 #### String to remove
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --remove
+```
+
+#### String to reinstall
+```bash
+bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --reinstall
+```
+
+#### String to renew config
+```bash
+bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --renew
 ```
 
 #### String to get vless QR code
