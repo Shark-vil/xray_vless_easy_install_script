@@ -67,28 +67,76 @@ chmod +x xvei.sh
 /usr/local/etc/xray/config.json
 ```
 
+#### Print file content
+```bash
+cat /usr/local/etc/xray/config.json
+```
+```bash
+echo $(cat /usr/local/etc/xray/config.json)
+```
+
 ### Vless clinet config
 ```
 /root/xray_eis/vless_client_config.json
+```
+```
 /$HOME/xray_eis/vless_client_config.json
+```
+
+#### Print file content
+```bash
+cat /root/xray_eis/vless_client_config.json
+```
+```bash
+echo $(cat /root/xray_eis/vless_client_config.json)
 ```
 
 ### Vless client connect string
 ```
 /root/xray_eis/vless_client_link.txt
+```
+```
 /$HOME/xray_eis/vless_client_link.txt
+```
+
+#### Print file content
+```bash
+cat /root/xray_eis/vless_client_link.txt
+```
+```bash
+echo $(cat /root/xray_eis/vless_client_link.txt)
 ```
 
 ### Shadowsocks client connect string
 ```
 /root/xray_eis/shadowsocks_client_link.txt
+```
+```
 /$HOME/xray_eis/shadowsocks_client_link.txt
+```
+
+#### Print file content
+```bash
+cat /root/xray_eis/shadowsocks_client_link.txt
+```
+```bash
+echo $(cat /root/xray_eis/shadowsocks_client_link.txt)
 ```
 
 ### Client shadowsocks password
 ```
 /root/xray_eis/shadowsocks_password.txt
+```
+```
 /$HOME/xray_eis/shadowsocks_password.txt
+```
+
+#### Print file content
+```bash
+cat /root/xray_eis/shadowsocks_password.txt
+```
+```bash
+echo $(cat /root/xray_eis/shadowsocks_password.txt)
 ```
 
 ### FAQ
@@ -96,12 +144,13 @@ chmod +x xvei.sh
 Try using the normal config ( *Cloudflare proxy needs to be turned off!* )
 
 #### What application can I use?
-* [Nekoray](https://github.com/MatsuriDayo/nekoray)
-* [Hiddify](https://hiddify.com/)
+* [Qv2ray (GitHub)](https://github.com/Qv2ray/Qv2ray/releases/latest)
+* [Nekoray (GitHub)](https://github.com/MatsuriDayo/nekoray/releases/latest)
+* [Hiddify](https://hiddify.com/) - Configuration files only! **vless://** & **ss://** may not process completely!
 * * [Android](https://play.google.com/store/apps/details?id=app.hiddify.com)
 * * [Windows](https://apps.microsoft.com/detail/9pdfnl3qv2s5)
 * * [Other](https://app.hiddify.com/)
-* [v2rayNG (GitHub)](https://github.com/2dust/v2rayNG)
+* [v2rayNG (GitHub)](https://github.com/2dust/v2rayNG/releases/latest)
 * * [Android](https://play.google.com/store/apps/details?id=com.v2ray.ang)
 
-**P.s. Personally, I'm having trouble with Hiddify on my Android device. I recommend using “v2rayNG”. On Windows - Hiddify works fine!**
+*P.s. Personally, I'm having trouble with **Hiddify** on my **Android** device. I recommend using “**v2rayNG**”. On **Windows** - **Hiddify** works fine!*
