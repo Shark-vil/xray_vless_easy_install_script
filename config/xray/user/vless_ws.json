@@ -6,20 +6,14 @@
       "server": "%DOMAIN_NAME%",
       "server_port": 443,
       "uuid": "%CLIENT_UUID%",
-      "flow": null,
       "tls": {
         "enabled": true,
         "server_name": "%DOMAIN_NAME%",
-        "insecure": true,
+        "insecure": false,
         "utls": {
           "enabled": true,
           "fingerprint": "chrome"
         }
-      },
-      "multiplex": {
-        "enabled": false,
-        "protocol": "smux",
-        "max_streams": 32
       },
       "packet_encoding": "xudp",
       "transport": {
