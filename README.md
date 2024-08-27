@@ -16,6 +16,7 @@ P.s. [dnsexit](https://dnsexit.com/domains/free-second-level-domains/) - It seem
 ## Arguments:
 * --help - Print help info
 * --install - Installing Xray
+* --install-expert - Installation mode for advanced users. Allows you to configure Shadowsocks and install WARP / TOR proxy.
 * --remove - Deletes Xray
 * --reinstall - Reinstalls all configs and services
 * --renew - Reinstalls ONLY configuration files, without reinstalling services
@@ -28,6 +29,11 @@ P.s. [dnsexit](https://dnsexit.com/domains/free-second-level-domains/) - It seem
 #### String to install
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --install
+```
+
+#### String for advanced installation
+```bash
+bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --install-expert
 ```
 
 #### String to remove

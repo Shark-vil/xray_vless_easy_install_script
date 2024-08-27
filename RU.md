@@ -16,6 +16,7 @@ P.s. [dnsexit](https://dnsexit.com/domains/free-second-level-domains/) - Пох�
 ## Аргументы:
 * --help - Вывести справочную информацию
 * --install - Установка Xray
+* --install-expert - Режим установки для продвинутых пользователей. Позволяет настроить Shadowsocks и установить прокси WARP / TOR.
 * --remove - Удаление Xray
 * --reinstall - Переустановка всех конфигураций и сервисов
 * --renew - Переустановка ТОЛЬКО конфигурационных файлов, без переустановки сервисов
@@ -28,6 +29,11 @@ P.s. [dnsexit](https://dnsexit.com/domains/free-second-level-domains/) - Пох�
 #### Строка для установки
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --install
+```
+
+#### Строка для продвинутой установки
+```bash
+bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --install-expert
 ```
 
 #### Строка для удаления

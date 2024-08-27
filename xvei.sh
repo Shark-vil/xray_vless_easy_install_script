@@ -3,6 +3,8 @@
 XRAY_GIT_SCRIPT="https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
 ROOT_GIT_REPO="https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master"
 REPO_XRAY_CONFIG="$ROOT_GIT_REPO/config/xray/config.json"
+REPO_XRAY_CONFIG_WARP="$ROOT_GIT_REPO/config/xray/config_warp.json"
+REPO_XRAY_CONFIG_TOR="$ROOT_GIT_REPO/config/xray/config_tor.json"
 REPO_NGINX_CONFIG="$ROOT_GIT_REPO/config/nginx/default"
 REPO_XRAY_CONFIG_VLESS="$ROOT_GIT_REPO/config/xray/user/vless.json"
 REPO_XRAY_CONFIG_VLESS_WS="$ROOT_GIT_REPO/config/xray/user/vless_ws.json"
@@ -18,7 +20,12 @@ CONFIG_VLESS_LINK_CLIENT_PATH="$CONFIG_DIST_PATH/vless_client_link.txt"
 CONFIG_SHADOWSOCKS_PASSWORD_PATH="$CONFIG_DIST_PATH/shadowsocks_password.txt"
 CONFIG_SHADOWSOCKS_LINK_CLIENT_PATH="$CONFIG_DIST_PATH/shadowsocks_client_link.txt"
 XRAY_CONFIG_PATH="/usr/local/etc/xray/config.json"
-XRAY_RENEW_CONFIG="0"
+XRAY_SHADOWSOCKS_PORT_DEFAULT="5465"
+PARAM_RENEW_CONFIG="0"
+PARAM_INSTALL_CUSTOMIZE="0"
+VALUE_ENCRYPTION_METHOD="2022-blake3-aes-128-gcm"
+VALUE_XRAY_SHADOWSOCKS_PORT="$XRAY_SHADOWSOCKS_PORT_DEFAULT"
+VALUE_OUTBOUNDS_PROXY=""
 
 print_log() {
   local message="$1"
@@ -34,6 +41,16 @@ print_error() {
   local reset_color="\033[0m"
   local prefix="[Xray|ERROR] "
   echo -e "${prefix_color}${prefix}${reset_color}${message}"
+}
+
+write_text_in_file() {
+    local file_path=$1
+    local write_content=$2
+
+    if [ ! -e $file_path ]; then
+        touch $file_path
+    fi
+    echo "$write_content" > "$file_path"
 }
 
 check_service() {
@@ -97,11 +114,103 @@ replace_text_in_file() {
     print_log "SET $1=$2 IN $3"
 }
 
+install_tor_network() {
+    apt_update
+    apt_install "tor"
+}
+
+install_warp_docker() {
+    docker run -d \
+        --name warp \
+        --restart always \
+        -p 1080:1080 \
+        -e WARP_SLEEP=2 \
+        --cap-add NET_ADMIN \
+        --sysctl net.ipv6.conf.all.disable_ipv6=0 \
+        --sysctl net.ipv4.conf.all.src_valid_mark=1 \
+        -v $(pwd)/warp/data:/var/lib/cloudflare-warp \
+        caomingjun/warp
+}
+
+install_docker() {
+    apt-get update
+    apt-get install -y ca-certificates curl
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+    chmod a+r /etc/apt/keyrings/docker.asc
+
+    # Add the repository to Apt sources:
+    echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+    tee /etc/apt/sources.list.d/docker.list > /dev/null
+    apt-get update
+
+    apt-get install -y docker-ce \
+        docker-ce-cli \
+        containerd.io \
+        docker-buildx-plugin \
+        docker-compose-plugin
+}
+
+set_encryption_method() {
+    local select_type_number
+    while true; do
+        print_log "Choise shadowsocks encryption method (Default: 2022-blake3-aes-128-gcm):"
+        print_log "1. 2022-blake3-aes-128-gcm"
+        print_log "2. 2022-blake3-aes-256-gcm"
+        print_log "3. 2022-blake3-chacha20-poly1305"
+        print_log "4. aes-128-gcm"
+        print_log "5. aes-256-gcm"
+        print_log "6. chacha20-poly1305"
+        print_log "7. chacha20-ietf-poly1305"
+        print_log "8. xchacha20-poly1305"
+        print_log "9. xchacha20-ietf-poly1305"
+        read -r select_type_number < /dev/tty
+        case "$select_type_number" in
+            1)
+                VALUE_ENCRYPTION_METHOD="2022-blake3-aes-128-gcm"
+                ;;
+            2)
+                VALUE_ENCRYPTION_METHOD="2022-blake3-aes-256-gcm"
+                ;;
+            3)
+                VALUE_ENCRYPTION_METHOD="2022-blake3-chacha20-poly1305"
+                ;;
+            4)
+                VALUE_ENCRYPTION_METHOD="aes-128-gcm"
+                ;;
+            5)
+                VALUE_ENCRYPTION_METHOD="aes-256-gcm"
+                ;;
+            6)
+                VALUE_ENCRYPTION_METHOD="chacha20-poly1305"
+                ;;
+            7)
+                VALUE_ENCRYPTION_METHOD="chacha20-ietf-poly1305"
+                ;;
+            8)
+                VALUE_ENCRYPTION_METHOD="xchacha20-poly1305"
+                ;;
+            9)
+                VALUE_ENCRYPTION_METHOD="xchacha20-ietf-poly1305"
+                ;;
+            *)
+                VALUE_ENCRYPTION_METHOD="2022-blake3-aes-128-gcm"
+                ;;
+        esac
+        if confirm_changes "'$VALUE_ENCRYPTION_METHOD' - Is this the correct method?"; then
+            break
+        fi
+        print_error "Method not correct. Try again."
+    done
+}
+
 read_domain() {
     while true; do
         print_log "Print your REAL domain name (example: mysite.com):"
         read -r VALUE_YOUR_DOMAIN < /dev/tty
-        if confirm_changes "Is this the correct domain?"; then
+        if confirm_changes "'$VALUE_YOUR_DOMAIN' - Is this the correct domain?"; then
             break
         fi
         print_error "Domain not correct. Try again."
@@ -112,7 +221,7 @@ read_mail() {
     while true; do
         print_log "Print your REAL email (example: mymail@gmail.com):"
         read -r VALUE_YOUR_EMAIL < /dev/tty
-        if confirm_changes "Is this the correct domain?"; then
+        if confirm_changes "'$VALUE_YOUR_EMAIL' - Is this the correct domain?"; then
             break
         fi
         print_error "Mail not correct. Try again."
@@ -121,14 +230,14 @@ read_mail() {
 
 set_shadowsocks_port() {
     while true; do
-        print_log "Print shadowsocks port (default: 2121):"
+        print_log "Print shadowsocks port (default: $XRAY_SHADOWSOCKS_PORT_DEFAULT):"
         read VALUE_XRAY_SHADOWSOCKS_PORT < /dev/tty
         if ! is_number $VALUE_XRAY_SHADOWSOCKS_PORT; then
-            VALUE_XRAY_SHADOWSOCKS_PORT="2121"
+            VALUE_XRAY_SHADOWSOCKS_PORT="$XRAY_SHADOWSOCKS_PORT_DEFAULT"
         fi
         if ss -tuln | grep -q ":$VALUE_XRAY_SHADOWSOCKS_PORT"; then
             print_error "The port $VALUE_XRAY_SHADOWSOCKS_PORT is already in use"
-            VALUE_XRAY_SHADOWSOCKS_PORT="2121"
+            VALUE_XRAY_SHADOWSOCKS_PORT="$XRAY_SHADOWSOCKS_PORT_DEFAULT"
         fi
         if confirm_changes "Port: $VALUE_XRAY_SHADOWSOCKS_PORT. Is this the correct port?"; then
             break
@@ -167,6 +276,7 @@ xray_update_config_template() {
     replace_text_in_file "LETSENCRYPT_FULLCHAIN" $VALUE_LETSENCRYPT_FULLCHAIN $XRAY_CONFIG_PATH
     replace_text_in_file "LETSENCRYPT_PRIVKEY" $VALUE_LETSENCRYPT_PRIVKEY $XRAY_CONFIG_PATH
     replace_text_in_file "SHADOWSOCKS_PORT" $VALUE_XRAY_SHADOWSOCKS_PORT $XRAY_CONFIG_PATH
+    replace_text_in_file "ENCRYPTION_METHOD" $VALUE_ENCRYPTION_METHOD $XRAY_CONFIG_PATH
     replace_text_in_file "PASSWORD" $VALUE_XRAY_USER_PASSWORD_BASE64 $XRAY_CONFIG_PATH
     replace_text_in_file "CLIENT_UUID" $VALUE_XRAY_USER_UUID $XRAY_CONFIG_PATH
     replace_text_in_file "CLIENT_MAIL" $VALUE_YOUR_EMAIL $XRAY_CONFIG_PATH
@@ -222,6 +332,7 @@ xray_set_vless_config_type() {
     replace_text_in_file "PASSWORD" $VALUE_XRAY_USER_PASSWORD_BASE64 $CONFIG_SHADOWSOCKS_LINK_CLIENT_PATH
     replace_text_in_file "SERVER_IP" $(curl -s ifconfig.me) $CONFIG_SHADOWSOCKS_LINK_CLIENT_PATH
     replace_text_in_file "SHADOWSOCKS_PORT" $VALUE_XRAY_SHADOWSOCKS_PORT $CONFIG_SHADOWSOCKS_LINK_CLIENT_PATH
+    replace_text_in_file "ENCRYPTION_METHOD" $VALUE_ENCRYPTION_METHOD $CONFIG_SHADOWSOCKS_LINK_CLIENT_PATH
 
     VALUE_XRAY_VLESS_CONNECT=$(cat $CONFIG_VLESS_LINK_CLIENT_PATH)
     VALUE_XRAY_SHADOWSOCKS_CONNECT=$(cat $CONFIG_SHADOWSOCKS_LINK_CLIENT_PATH)
@@ -235,16 +346,6 @@ xray_update_user_config_template() {
     replace_text_in_file "CLIENT_UUID" $VALUE_XRAY_USER_UUID $CONFIG_VLESS_CLIENT_PATH
     replace_text_in_file "WEBSOCKET_PATH" $VALUE_XRAY_WS_PATH $CONFIG_VLESS_CLIENT_PATH
     replace_text_in_file "DOMAIN_NAME" $VALUE_YOUR_DOMAIN $CONFIG_VLESS_CLIENT_PATH
-}
-
-write_text_in_file() {
-    local file_path=$1
-    local write_content=$2
-
-    if [ ! -e $file_path ]; then
-        touch $file_path
-    fi
-    echo "$write_content" > "$file_path"
 }
 
 print_result_install() {
@@ -308,8 +409,37 @@ remove_xray() {
     check_service "nginx"
 }
 
+set_outbounds_proxy() {
+    if ! confirm_changes "Do you want to hide the server IP to the outside world?"; then
+        return
+    fi
+
+    local select_type_number
+    while true; do
+        print_log "Select the type of proxy (Default: WARP):"
+        print_log "1. WARP (Cloudflare)"
+        print_log "2. TOR (Tor network)"
+        read -r select_type_number < /dev/tty
+        case "$select_type_number" in
+            1)
+                VALUE_OUTBOUNDS_PROXY="warp"
+                ;;
+            2)
+                VALUE_OUTBOUNDS_PROXY="tor"
+                ;;
+            *)
+                VALUE_OUTBOUNDS_PROXY="warp"
+                ;;
+        esac
+        if confirm_changes "'$VALUE_OUTBOUNDS_PROXY' - Is this the correct method?"; then
+            break
+        fi
+        print_error "Method not correct. Try again."
+    done
+}
+
 install_xray() {
-    if [ "$XRAY_RENEW_CONFIG" = "0" ]; then
+    if [ "$PARAM_RENEW_CONFIG" = "0" ]; then
         apt_update
         apt_install "curl"
 
@@ -337,9 +467,30 @@ install_xray() {
 
     letsencrypt_install_cert_from_domain $VALUE_YOUR_DOMAIN $VALUE_YOUR_EMAIL
     mkdir $CONFIG_DIST_PATH
-    wget -O $XRAY_CONFIG_PATH $REPO_XRAY_CONFIG
 
-    set_shadowsocks_port
+    if [ "$PARAM_INSTALL_CUSTOMIZE" = "1" ]; then
+        set_shadowsocks_port
+        set_encryption_method
+        set_outbounds_proxy
+
+        case "$VALUE_OUTBOUNDS_PROXY" in
+            "tor")
+                wget -O $XRAY_CONFIG_PATH $REPO_XRAY_CONFIG_TOR
+                install_tor_network
+                ;;
+            "warp")
+                wget -O $XRAY_CONFIG_PATH $REPO_XRAY_CONFIG_WARP
+                install_docker
+                install_warp_docker
+                ;;
+            *)
+                wget -O $XRAY_CONFIG_PATH $REPO_XRAY_CONFIG
+                ;;
+        esac
+    else
+        wget -O $XRAY_CONFIG_PATH $REPO_XRAY_CONFIG
+    fi
+
     xray_update_config_template
     nginx_update_default_config
     xray_set_vless_config_type
@@ -377,6 +528,11 @@ while [[ $# -gt 0 ]]; do
             print_help
             exit 0
             ;;
+        --install-expert)
+            PARAM_INSTALL_CUSTOMIZE="1"
+            install_xray
+            exit 0
+            ;;
         --install)
             install_xray
             exit 0
@@ -387,7 +543,7 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         --renew)
-            XRAY_RENEW_CONFIG="1"
+            PARAM_RENEW_CONFIG="1"
             install_xray
             exit 0
             ;;

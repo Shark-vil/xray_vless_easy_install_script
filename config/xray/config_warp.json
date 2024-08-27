@@ -6,6 +6,11 @@
     "rules": [
       {
         "type": "field",
+        "inboundTag": ["ss", "vless_tls", "vless_ws"],
+        "outboundTag": "warp_proxy"
+      },
+      {
+        "type": "field",
         "outboundTag": "block",
         "ip": ["0.0.0.0/8", "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16"]
       },
@@ -99,6 +104,18 @@
     }
   ],
   "outbounds": [
+    {
+      "protocol": "socks",
+      "tag": "warp_proxy",
+      "settings": {
+        "servers": [
+          {
+            "address": "127.0.0.1",
+            "port": 1080
+          }
+        ]
+      }
+    },
     {
       "protocol": "freedom",
       "tag": "direct"
