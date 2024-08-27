@@ -25,6 +25,12 @@ P.s. [dnsexit](https://dnsexit.com/domains/free-second-level-domains/) - It seem
 
 ## How use?
 
+### Execute these lines before running the scripts!
+```bash
+apt-get update
+apt-get install curl
+```
+
 ### Use remote script
 #### String to install
 ```bash
