@@ -28,7 +28,7 @@ P.s. [dnsexit](https://dnsexit.com/domains/free-second-level-domains/) - Пох�
 ### Выполните эти строки до запуска скриптов!
 ```bash
 apt-get update
-apt-get install curl
+apt-get -y install curl
 ```
 
 ### Используйте удаленный скрипт
