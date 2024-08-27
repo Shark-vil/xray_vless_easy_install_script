@@ -28,7 +28,7 @@ P.s. [dnsexit](https://dnsexit.com/domains/free-second-level-domains/) - It seem
 ### Execute these lines before running the scripts!
 ```bash
 apt-get update
-apt-get install curl
+apt-get -y install curl
 ```
 
 ### Use remote script
