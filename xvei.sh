@@ -121,14 +121,14 @@ install_tor_network() {
 
 install_warp_docker() {
     docker run -d \
-        --name warp \
+        --name warp-xray \
         --restart always \
         -p 1080:1080 \
         -e WARP_SLEEP=2 \
         --cap-add NET_ADMIN \
         --sysctl net.ipv6.conf.all.disable_ipv6=0 \
         --sysctl net.ipv4.conf.all.src_valid_mark=1 \
-        -v $(pwd)/warp/data:/var/lib/cloudflare-warp \
+        -v $HOME/warp-xray/data:/var/lib/cloudflare-warp \
         caomingjun/warp
 }
 
@@ -384,11 +384,16 @@ print_result_install() {
 }
 
 remove_xray() {
+    docker rm -f waro-xray
     systemctl stop nginx.service
     systemctl stop xray.service
     if [ -e $CONFIG_DIST_PATH ]; then
         rm -rf $CONFIG_DIST_PATH
         print_log "Remove: '$CONFIG_DIST_PATH'"
+    fi
+    if [ -e "$HOME/warp-xray" ]; then
+        rm -rf "$HOME/warp-xray"
+        print_log "Remove: '$HOME/warp-xray'"
     fi
     if [ -e $NGINX_NEW_CONFIG ]; then
         rm -f $NGINX_NEW_CONFIG
