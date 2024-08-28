@@ -2,7 +2,6 @@
 
 XRAY_GIT_SCRIPT="https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
 ROOT_GIT_REPO="https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master"
-REPO_PY_MANAGE_USERS_CONFIG="$ROOT_GIT_REPO/python/manage_users.py"
 REPO_XRAY_CONFIG="$ROOT_GIT_REPO/config/xray/config.json"
 REPO_XRAY_CONFIG_WARP="$ROOT_GIT_REPO/config/xray/config_warp.json"
 REPO_XRAY_CONFIG_TOR="$ROOT_GIT_REPO/config/xray/config_tor.json"
@@ -448,7 +447,6 @@ install_xray() {
     if [ "$PARAM_RENEW_CONFIG" = "0" ]; then
         apt_update
         apt_install "curl"
-        apt_install "python3"
 
         if ! curl --head --silent --fail "$XRAY_GIT_SCRIPT" > /dev/null; then
             echo "File $XRAY_GIT_SCRIPT not found :("
@@ -534,22 +532,6 @@ while [[ $# -gt 0 ]]; do
         --help)
             print_help
             exit 0
-            ;;
-        --add-user)
-            print_log "Print user email:"
-            read READ_USER_EMAIL < /dev/tty
-            if ! confirm_changes "$READ_USER_EMAIL - Is this the correct mail?"; then
-                exit 0
-            fi
-            curl -s $REPO_PY_MANAGE_USERS_CONFIG | python3 add "$(cat /proc/sys/kernel/random/uuid)" "$READ_USER_EMAIL" "xtls-rprx-vision"
-            ;;
-        --remove-user)
-            print_log "Print user email:"
-            read READ_USER_EMAIL < /dev/tty
-            if ! confirm_changes "$READ_USER_EMAIL - Is this the correct mail?"; then
-                exit 0
-            fi
-            curl -s $REPO_PY_MANAGE_USERS_CONFIG | python3 remove "$READ_USER_EMAIL"
             ;;
         --install-expert)
             PARAM_INSTALL_CUSTOMIZE="1"
