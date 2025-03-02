@@ -1,0 +1,13 @@
+{
+    "outbounds": [
+        {
+            "type": "shadowsocks",
+            "tag": "proxy",
+            "method": "%ENCRYPTION_METHOD%",
+            "password": "%PASSWORD%",
+            "server": "%SERVER_IP%",
+            "server_port": %SHADOWSOCKS_PORT%,
+            "udp_over_tcp": false
+        }
+    ]
+}

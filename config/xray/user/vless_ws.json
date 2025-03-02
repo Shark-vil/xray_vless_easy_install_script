@@ -2,20 +2,21 @@
   "outbounds": [
     {
       "type": "vless",
-      "tag": "vless-out",
+      "tag": "proxy",
       "server": "%DOMAIN_NAME%",
       "server_port": 443,
       "uuid": "%CLIENT_UUID%",
       "tls": {
         "enabled": true,
-        "server_name": "%DOMAIN_NAME%",
+        "server": "%DOMAIN_NAME%",
         "insecure": false,
+        "flow": "",
         "utls": {
           "enabled": true,
           "fingerprint": "chrome"
         }
       },
-      "packet_encoding": "xudp",
+      "packet_encoding": "",
       "transport": {
         "type": "ws",
         "path": "/%WEBSOCKET_PATH%",
