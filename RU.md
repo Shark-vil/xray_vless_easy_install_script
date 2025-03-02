@@ -164,3 +164,42 @@ echo $(cat /$HOME/xray_eis/vless_client_config.json)
 * * [Android](https://play.google.com/store/apps/details?id=com.v2ray.ang)
 
 *P.s. Лично у меня возникают проблемы с **Hiddify** на моем устройстве **Android**. Я рекомендую использовать **v2rayNG**. На **Windows** - **Hiddify** работает отлично!*
+
+## Рекомендация
+
+*Для выполнения этого шага убедитесь что у вас утсановлен [GeoSite](/v2ray_geo/geosite.dat) и [GeoIp](/v2ray_geo/geoip.dat)*. Если вы изпользуйте [Nekoray](https://github.com/MatsuriDayo/nekoray/releases/latest), то эти файлы уже должны быть предустановленны.
+
+На стороне клиента добавьте эти правила для доступа напрямую (*direct*), а не через туннель:
+
+**Для IP:**
+
+```
+geoip:private
+geoip:ru
+```
+
+**Для доменов:**
+
+```
+geosite:private
+geosite:vk
+geosite:mailru
+geosite:yandex
+geosite:category-ru
+geosite:category-gov-ru
+geosite:twitch
+geosite:steam
+geosite:epicgames
+regexp:^([\w\-\.]+\.)loc$
+regexp:^([\w\-\.]+\.)local$
+regexp:^([\w\-\.]+\.)ru$
+regexp:^([\w\-\.]+\.)su$
+regexp:^([\w\-\.]+\.)xn--p1ai$
+regexp:^([\w\-\.]+\.)xn--p1acf$
+regexp:^([\w\-\.]+\.)xn--80asehdb$
+regexp:^([\w\-\.]+\.)xn--c1avg$
+regexp:^([\w\-\.]+\.)xn--80aswg$
+regexp:^([\w\-\.]+\.)xn--80adxhks$
+regexp:^([\w\-\.]+\.)moscow$
+regexp:^([\w\-\.]+\.)xn--d1acj3b$
+```
