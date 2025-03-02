@@ -179,13 +179,13 @@ echo $(cat /$HOME/xray_eis/shadowsocks_link.txt)
 * Я вставляю текст для подключения в приложение, но ничего не получается.
 * * Некоторые приложения могут не поддерживать ссылки **vless://** и **ss://**. В этом случае необходимо использовать **полный конфигурационный файл**. Вы можете получить его, вызвав команду в терминале после установки:
 ```bash
-cat /$HOME/xray_eis/vless_config.json
+echo $(cat /$HOME/xray_eis/vless_config.json)
 ```
 ```bash
-cat /$HOME/xray_eis/vless_ws_config.json
+echo $(cat /$HOME/xray_eis/vless_ws_config.json)
 ```
 ```bash
-cat /$HOME/xray_eis/shadowsocks_config.json
+echo $(cat /$HOME/xray_eis/shadowsocks_config.json)
 ```
 
 ## Какое приложение я могу использовать?

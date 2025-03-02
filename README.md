@@ -179,13 +179,13 @@ echo $(cat /$HOME/xray_eis/shadowsocks_link.txt)
 * I paste the text to connect into the app, but nothing works.
 * * Some applications may not support **vless://** and **ss://** references. In this case, you will need to use the **full configuration file**. You can get it by invoking the command in the terminal after installation:
 ```bash
-cat /$HOME/xray_eis/vless_config.json
+echo $(cat /$HOME/xray_eis/vless_config.json)
 ```
 ```bash
-cat /$HOME/xray_eis/vless_ws_config.json
+echo $(cat /$HOME/xray_eis/vless_ws_config.json)
 ```
 ```bash
-cat /$HOME/xray_eis/shadowsocks_config.json
+echo $(cat /$HOME/xray_eis/shadowsocks_config.json)
 ```
 
 ## What application can I use?
