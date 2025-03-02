@@ -2,6 +2,9 @@
 
 ## [Documentation in English](./README.md)
 
+## Внимание
+Произведите установку только при наличии прав администратора! (**root**)
+
 ## Этот скрипт использует внутри себя другой скрипт:
 ### [XTLS/Xray-install](https://github.com/XTLS/Xray-install/raw/main/install-release.sh)
 
@@ -16,11 +19,11 @@ P.s. [dnsexit](https://dnsexit.com/domains/free-second-level-domains/) - Пох�
 ## Аргументы:
 * --help - Вывести справочную информацию
 * --install - Установка Xray
-* --install-expert - Режим установки для продвинутых пользователей. Позволяет настроить Shadowsocks и установить прокси WARP / TOR.
 * --remove - Удаление Xray
 * --reinstall - Переустановка всех конфигураций и сервисов
 * --renew - Переустановка ТОЛЬКО конфигурационных файлов, без переустановки сервисов
 * --vless-qr - Выводит QR-код Vless в терминал
+* --vless-ws-qr - Выводит QR-код Vless WebSocket в терминал
 * --shadowsocks-qr - Выводит QR-код Shadowsocks в терминал
 
 ## Как использовать?
@@ -35,11 +38,6 @@ apt-get -y install curl
 #### Строка для установки
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --install
-```
-
-#### Строка для продвинутой установки
-```bash
-bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --install-expert
 ```
 
 #### Строка для удаления
@@ -60,6 +58,11 @@ bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_insta
 #### Строка для получения QR-кода vless
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --vless-qr
+```
+
+#### Строка для получения QR-кода vless websocket
+```bash
+bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --vless-ws-qr
 ```
 
 #### Строка для получения QR-кода shadowsocks
@@ -91,56 +94,82 @@ cat /usr/local/etc/xray/config.json
 echo $(cat /usr/local/etc/xray/config.json)
 ```
 
-### Vless клиент-конфиг
+### Vless TLS клиентский конфиг
 ```
-/$HOME/xray_eis/vless_client_config.json
-```
-
-#### Печать содержимого файла
-```bash
-cat /$HOME/xray_eis/vless_client_config.json
-```
-```bash
-echo $(cat /$HOME/xray_eis/vless_client_config.json)
-```
-
-### Vless клиентская строка подключения
-```
-/$HOME/xray_eis/vless_client_link.txt
+/$HOME/xray_eis/vless_config.json
 ```
 
 #### Печать содержимого файла
 ```bash
-cat /$HOME/xray_eis/vless_client_link.txt
+cat /$HOME/xray_eis/vless_config.json
 ```
 ```bash
-echo $(cat /$HOME/xray_eis/vless_client_link.txt)
+echo $(cat /$HOME/xray_eis/vless_config.json)
 ```
 
-### Shadowsocks клиентская строка подключения
+### Vless TLS строка подключения
 ```
-/$HOME/xray_eis/shadowsocks_client_link.txt
-```
-
-#### Печать содержимого файла
-```bash
-cat /$HOME/xray_eis/shadowsocks_client_link.txt
-```
-```bash
-echo $(cat /$HOME/xray_eis/shadowsocks_client_link.txt)
-```
-
-### Пароль клиента shadowsocks
-```
-/$HOME/xray_eis/shadowsocks_password.txt
+/$HOME/xray_eis/vless_link.txt
 ```
 
 #### Печать содержимого файла
 ```bash
-cat /$HOME/xray_eis/shadowsocks_password.txt
+cat /$HOME/xray_eis/vless_link.txt
 ```
 ```bash
-echo $(cat /$HOME/xray_eis/shadowsocks_password.txt)
+echo $(cat /$HOME/xray_eis/vless_link.txt)
+```
+
+### Vless WebSocket клиентский конфиг
+```
+/$HOME/xray_eis/vless_ws_config.json
+```
+
+#### Печать содержимого файла
+```bash
+cat /$HOME/xray_eis/vless_ws_config.json
+```
+```bash
+echo $(cat /$HOME/xray_eis/vless_ws_config.json)
+```
+
+### Vless WebSocket строка подключения
+```
+/$HOME/xray_eis/vless_ws_link.txt
+```
+
+#### Печать содержимого файла
+```bash
+cat /$HOME/xray_eis/vless_ws_link.txt
+```
+```bash
+echo $(cat /$HOME/xray_eis/vless_ws_link.txt)
+```
+
+### Shadowsocks клиентский конфиг
+```
+/$HOME/xray_eis/shadowsocks_config.json
+```
+
+#### Печать содержимого файла
+```bash
+cat /$HOME/xray_eis/shadowsocks_config.json
+```
+```bash
+echo $(cat /$HOME/xray_eis/shadowsocks_config.json)
+```
+
+### Shadowsocks строка подключения
+```
+/$HOME/xray_eis/shadowsocks_link.txt
+```
+
+#### Печать содержимого файла
+```bash
+cat /$HOME/xray_eis/shadowsocks_link.txt
+```
+```bash
+echo $(cat /$HOME/xray_eis/shadowsocks_link.txt)
 ```
 
 ## FAQ

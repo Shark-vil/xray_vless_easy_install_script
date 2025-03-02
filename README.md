@@ -2,6 +2,9 @@
 
 ## [Документация на русском](./RU.md)
 
+## Attention
+Perform installation only if you have administrator rights! (**root**)
+
 ## This script uses another script internally:
 ### [XTLS/Xray-install](https://github.com/XTLS/Xray-install/raw/main/install-release.sh)
 
@@ -16,11 +19,11 @@ P.s. [dnsexit](https://dnsexit.com/domains/free-second-level-domains/) - It seem
 ## Arguments:
 * --help - Print help info
 * --install - Installing Xray
-* --install-expert - Installation mode for advanced users. Allows you to configure Shadowsocks and install WARP / TOR proxy.
 * --remove - Deletes Xray
 * --reinstall - Reinstalls all configs and services
 * --renew - Reinstalls ONLY configuration files, without reinstalling services
 * --vless-qr - Outputs the Vless connection code to the terminal
+* --vless-ws-qr - Outputs the Vless WebSocket connection code to the terminal
 * --shadowsocks-qr - Outputs the Shadowsocks connection code to the terminal
 
 ## How use?
@@ -35,11 +38,6 @@ apt-get -y install curl
 #### String to install
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --install
-```
-
-#### String for advanced installation
-```bash
-bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --install-expert
 ```
 
 #### String to remove
@@ -60,6 +58,11 @@ bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_insta
 #### String to get vless QR code
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --vless-qr
+```
+
+#### String to get vless WebSocket QR code
+```bash
+bash <(curl -s https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) --vless-ws-qr
 ```
 
 #### String to get shadowsocks QR code
@@ -91,56 +94,82 @@ cat /usr/local/etc/xray/config.json
 echo $(cat /usr/local/etc/xray/config.json)
 ```
 
-### Vless clinet config
+### Vless TLS clinet config
 ```
-/$HOME/xray_eis/vless_client_config.json
-```
-
-#### Print file content
-```bash
-cat /$HOME/xray_eis/vless_client_config.json
-```
-```bash
-echo $(cat /$HOME/xray_eis/vless_client_config.json)
-```
-
-### Vless client connect string
-```
-/$HOME/xray_eis/vless_client_link.txt
+/$HOME/xray_eis/vless_config.json
 ```
 
 #### Print file content
 ```bash
-cat /$HOME/xray_eis/vless_client_link.txt
+cat /$HOME/xray_eis/vless_config.json
 ```
 ```bash
-echo $(cat /$HOME/xray_eis/vless_client_link.txt)
+echo $(cat /$HOME/xray_eis/vless_config.json)
+```
+
+### Vless TLS client connect string
+```
+/$HOME/xray_eis/vless_link.txt
+```
+
+#### Print file content
+```bash
+cat /$HOME/xray_eis/vless_link.txt
+```
+```bash
+echo $(cat /$HOME/xray_eis/vless_link.txt)
+```
+
+### Vless WebSocket clinet config
+```
+/$HOME/xray_eis/vless_ws_config.json
+```
+
+#### Print file content
+```bash
+cat /$HOME/xray_eis/vless_ws_config.json
+```
+```bash
+echo $(cat /$HOME/xray_eis/vless_ws_config.json)
+```
+
+### Vless WebSocket client connect string
+```
+/$HOME/xray_eis/vless_ws_link.txt
+```
+
+#### Print file content
+```bash
+cat /$HOME/xray_eis/vless_ws_link.txt
+```
+```bash
+echo $(cat /$HOME/xray_eis/vless_ws_link.txt)
+```
+
+### Shadowsocks clinet config
+```
+/$HOME/xray_eis/shadowsocks_config.json
+```
+
+#### Print file content
+```bash
+cat /$HOME/xray_eis/shadowsocks_config.json
+```
+```bash
+echo $(cat /$HOME/xray_eis/shadowsocks_config.json)
 ```
 
 ### Shadowsocks client connect string
 ```
-/$HOME/xray_eis/shadowsocks_client_link.txt
+/$HOME/xray_eis/shadowsocks_link.txt
 ```
 
 #### Print file content
 ```bash
-cat /$HOME/xray_eis/shadowsocks_client_link.txt
+cat /$HOME/xray_eis/shadowsocks_link.txt
 ```
 ```bash
-echo $(cat /$HOME/xray_eis/shadowsocks_client_link.txt)
-```
-
-### Client shadowsocks password
-```
-/$HOME/xray_eis/shadowsocks_password.txt
-```
-
-#### Print file content
-```bash
-cat /$HOME/xray_eis/shadowsocks_password.txt
-```
-```bash
-echo $(cat /$HOME/xray_eis/shadowsocks_password.txt)
+echo $(cat /$HOME/xray_eis/shadowsocks_link.txt)
 ```
 
 ## FAQ
