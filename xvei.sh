@@ -188,6 +188,14 @@ install_tor_network() {
 }
 
 install_warp_docker() {
+    if docker ps -a --format '{{.Names}}' | grep -q "^warp-xray$"; then
+        return 0
+    fi
+
+    if [ ! -d "$HOME/warp-xray/data" ]; then
+        mkdir -p "$HOME/warp-xray/data"
+    fi
+
     docker run -d \
         --name warp-xray \
         --restart always \
@@ -204,14 +212,24 @@ install_docker() {
     DISTRO=$(lsb_release -is | tr '[:upper:]' '[:lower:]')
     
     if [ "$DISTRO" == "debian" ] || [ "$DISTRO" == "ubuntu" ]; then
+        if dpkg -l | grep -q docker-ce; then
+            return 0
+        fi
+        
         apt-get update
         apt-get install -y ca-certificates curl lsb-release
         install -m 0755 -d /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+        curl -fsSL https://download.docker.com/linux/$(lsb_release -is | tr '[:upper:]' '[:lower:]')/gpg -o /etc/apt/keyrings/docker.asc
         chmod a+r /etc/apt/keyrings/docker.asc
 
+        if [ "$DISTRO" == "debian" ]; then
+            REPO_URL="https://download.docker.com/linux/debian"
+        else
+            REPO_URL="https://download.docker.com/linux/ubuntu"
+        fi
+
         echo \
-        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] $REPO_URL \
         $(lsb_release -cs) stable" | \
         tee /etc/apt/sources.list.d/docker.list > /dev/null
         apt-get update
@@ -222,6 +240,10 @@ install_docker() {
             docker-buildx-plugin \
             docker-compose-plugin
     elif [ "$DISTRO" == "centos" ] || [ "$DISTRO" == "rhel" ] || [ "$DISTRO" == "fedora" ]; then
+        if rpm -q docker-ce; then
+            return 0
+        fi
+        
         yum install -y dnf-utils
         dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 
@@ -230,8 +252,7 @@ install_docker() {
         systemctl start docker
         systemctl enable docker
     else
-        echo "Support for this distribution is not implemented."
-        return 1
+        print_error "Support Docker for this distribution is not implemented."
     fi
 }
 
@@ -377,9 +398,34 @@ xray_update_config_template() {
     jq_builder '.routing.rules += [
     { "type": "field", "outboundTag": "block", "port": "135, 137, 138, 139" },
     { "type": "field", "outboundTag": "block", "protocol": ["bittorrent"] },
-    { "type": "field", "outboundTag": "block", "ip": ["geoip:private"] },
-    { "type": "field", "outboundTag": "direct", "network": "tcp,udp", "ip": ["0.0.0.0/0", "::/0"] }
+    { "type": "field", "outboundTag": "block", "ip": ["geoip:private"] }
     ]'
+
+    local route_proxy_tags=""
+    if [ -n "$VALUE_OUTBOUNDS_PROXY" ]; then
+        if [ "$VALUE_INBOUNDS_SHADOWSOCKS" = "1" ]; then
+            route_proxy_tags+="\"ss\","
+        fi
+        if [ "$VALUE_INBOUNDS_VLESS_TLS" = "1" ]; then
+            route_proxy_tags+="\"vless_tls\","
+        fi
+        if [ "$VALUE_INBOUNDS_VLESS_WS" = "1" ]; then
+            route_proxy_tags+="\"vless_ws\","
+        fi
+        route_proxy_tags=$(echo "$route_proxy_tags" | sed 's/.$//')
+    fi
+
+    case "$VALUE_OUTBOUNDS_PROXY" in
+        "tor")
+            jq_builder '.routing.rules += [{ "type": "field", "inboundTag": ['"$route_proxy_tags"'], "outboundTag": "tor_proxy" }]'
+            ;;
+        "warp")
+            jq_builder '.routing.rules += [{ "type": "field", "inboundTag": ['"$route_proxy_tags"'], "outboundTag": "warp_proxy" }]'
+            ;;
+        *)
+            jq_builder '.routing.rules += [{ "type": "field", "outboundTag": "direct", "network": "tcp,udp", "ip": ["0.0.0.0/0", "::/0"] }]'
+            ;;
+    esac
     jq_add_to_object ".routing" "domainStrategy" "\"AsIs\""
     jq_builder '.inbounds = []'
     if [ "$VALUE_INBOUNDS_SHADOWSOCKS" = "1" ]; then
@@ -625,12 +671,12 @@ remove_xray() {
 
 set_outbounds_proxy() {
     if ! confirm_changes "Do you want to hide the server IP to the outside world? (WARNING: Connection speed via double proxy will be lower!)"; then
-        return
+        return 0
     fi
 
     local select_type_number
     while true; do
-        print_log "Select the type of proxy (Default: WARP):"
+        print_log "Select the type of proxy (Default: WARP, Press \"Enter\" to skip):"
         print_log "1. WARP (Cloudflare)"
         print_log "2. TOR (Tor network)"
         read -r select_type_number < /dev/tty
