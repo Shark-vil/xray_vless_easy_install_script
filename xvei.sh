@@ -230,7 +230,7 @@ install_docker() {
         systemctl start docker
         systemctl enable docker
     else
-        echo "Поддержка для данного дистрибутива не реализована."
+        echo "Support for this distribution is not implemented."
         return 1
     fi
 }
