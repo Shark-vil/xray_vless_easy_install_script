@@ -1,6 +1,6 @@
 # XRay Vless Easy Install Script
 
-## [Documentation in English](./README.md)
+## [Documentation in English](/README.md)
 
 ## Внимание
 Производите установку только при наличии прав администратора! (**root**)
