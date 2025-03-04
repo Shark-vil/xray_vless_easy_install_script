@@ -9,12 +9,14 @@ Perform installation only if you have administrator rights! (**root**)
 ### [XTLS/Xray-install](https://github.com/XTLS/Xray-install/raw/main/install-release.sh)
 
 ## How is this script different?
-It will automatically install “Nginx”, and set up a configuration file for “**Shadowsocks + Vless + WebSocket Vless**”.
+It will automatically install “Nginx”, and set up a configuration file for “**Shadowsocks + Vless TLS + Vless WebSocket**”. The script allows you to select one or more options.
+
+![Select configuration](/docs/img/install_select.png)
 
 ## Attention!
-**You must buy, or find a free DOMAIN NAME (example.com)**
+**You must buy, or find a free DOMAIN NAME (example.com), if you are going to use "Vless". For "Shadowsocks" it is NOT NEEDED.**
 
-P.s. [dnsexit](https://dnsexit.com/domains/free-second-level-domains/) - It seems this site gives you the opportunity to register a domain for free. It is true that the free period of use is 1 year.
+P.s. [dnsexit](https://dnsexit.com/domains/free-second-level-domains/) - It seems this site gives you the opportunity to register a domain for free. But the free period of use is 1 year.
 
 ## Arguments:
 * --help - Print help info
