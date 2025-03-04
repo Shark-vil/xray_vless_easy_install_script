@@ -141,12 +141,13 @@ apt_install() {
 
 confirm_changes() {
     local prompt="$1"
+    local green="\033[32m"
+    local red="\033[31m"
+    local reset="\033[0m"
+    local confirm_value
     local response
 
     while true; do
-        local green="\033[32m"
-        local red="\033[31m"
-        local reset="\033[0m"
         local confirm_value
 
         print_log "${prompt} (${green}Yes${reset}/${red}No${reset}): "
@@ -698,22 +699,25 @@ set_outbounds_proxy() {
 
 set_xray_inbounds() {
     local select_type_number
+    local green="\033[32m"
+    local red="\033[31m"
+    local reset="\033[0m"
     while true; do
         print_log "Choose how you want to configure XRay:"
         if [ "$VALUE_INBOUNDS_VLESS_TLS" = "0" ]; then
-            print_log "1. Vless TLS (Not selected)"
+            print_log "1. Vless TLS (${red}Not selected${reset})"
         else
-            print_log "1. Vless TLS (Selected)"
+            print_log "1. Vless TLS (${green}Selected${reset})"
         fi
         if [ "$VALUE_INBOUNDS_VLESS_WS" = "0" ]; then
-            print_log "2. Vless WebSocket (Not selected)"
+            print_log "2. Vless WebSocket (${red}Not selected${reset})"
         else
-            print_log "2. Vless WebSocket (Selected)"
+            print_log "2. Vless WebSocket (${green}Selected${reset})"
         fi
         if [ "$VALUE_INBOUNDS_SHADOWSOCKS" = "0" ]; then
-            print_log "3. Shadowsocks (Not selected)"
+            print_log "3. Shadowsocks (${red}Not selected${reset})"
         else
-            print_log "3. Shadowsocks (Selected)"
+            print_log "3. Shadowsocks (${green}Selected${reset})"
         fi
         print_log "0. Complete selection and continue"
         read -r select_type_number < /dev/tty
@@ -775,16 +779,17 @@ install_xray() {
         bash -c "$(curl -L $XRAY_GIT_SCRIPT)" @ install -u root
     fi
 
-    systemctl stop nginx.service
-    systemctl stop xray.service
-
     set_xray_inbounds
 
     if [ "$VALUE_INBOUNDS_VLESS_TLS" = "1" ] || [ "$VALUE_INBOUNDS_VLESS_WS" = "1" ]; then
         read_domain
         read_mail
+        systemctl stop nginx.service > /dev/null
         letsencrypt_install_cert_from_domain $VALUE_YOUR_DOMAIN $VALUE_YOUR_EMAIL
+        systemctl start nginx.service > /dev/null
     fi
+
+    systemctl stop xray.service > /dev/null
 
     if [ -d "$CONFIG_DIST_PATH" ]; then
         rm -r "$CONFIG_DIST_PATH"
@@ -814,10 +819,9 @@ install_xray() {
     xray_update_config_template
     nginx_update_default_config
 
-    journalctl --vacuum-time=1s -u xray
-    systemctl restart systemd-journald
-    systemctl start nginx.service
-    systemctl start xray.service
+    journalctl --vacuum-time=1s -u xray > /dev/null
+    systemctl restart systemd-journald > /dev/null
+    systemctl start xray.service > /dev/null
 
     check_service "nginx"
     check_service "xray"
