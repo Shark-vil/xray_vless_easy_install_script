@@ -442,7 +442,7 @@ xray_update_config_template() {
         }
         ]'
     fi
-    if [ "$VALUE_INBOUNDS_VLESS_TLS" = "1" ]; then
+    if [ "$VALUE_INBOUNDS_VLESS_WS" = "1" ] || [ "$VALUE_INBOUNDS_VLESS_TLS" = "1" ]; then
         jq_builder '.inbounds += [
         {
             "port": 443,
@@ -457,11 +457,7 @@ xray_update_config_template() {
                     }
                 ],
                 "decryption": "none",
-                "fallbacks": [
-                    {
-                        "dest": "8080"
-                    }
-                ]
+                "fallbacks": []
             },
             "streamSettings": {
                 "network": "tcp",
@@ -490,7 +486,9 @@ xray_update_config_template() {
         ]'
 
         if [ "$VALUE_INBOUNDS_VLESS_WS" = "1" ]; then
-            jq_builder '.inbounds |= map(if .tag == "vless_tls" then .settings.fallbacks += [{"path": '"\"/$ws_path\""', "dest": "@vless-ws"}] else . end)'
+            jq_builder '.inbounds |= map(if .tag == "vless_tls" then .settings.fallbacks += [{"path": '"\"/$ws_path\""', "dest": "@vless-ws"}, {"dest": "8080"}] else . end)'
+        else
+            jq_builder '.inbounds |= map(if .tag == "vless_tls" then .settings.fallbacks += [{"dest": "8080"}] else . end)'
         fi
     fi
     if [ "$VALUE_INBOUNDS_VLESS_WS" = "1" ]; then
