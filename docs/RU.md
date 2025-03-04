@@ -3,7 +3,7 @@
 ## [Documentation in English](./README.md)
 
 ## Внимание
-Произведите установку только при наличии прав администратора! (**root**)
+Производите установку только при наличии прав администратора! (**root**)
 
 ## Этот скрипт использует внутри себя другой скрипт:
 ### [XTLS/Xray-install](https://github.com/XTLS/Xray-install/raw/main/install-release.sh)
