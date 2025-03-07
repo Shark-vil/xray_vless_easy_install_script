@@ -240,3 +240,13 @@ regexp:^([\w\-\.]+\.)xn--80adxhks$
 regexp:^([\w\-\.]+\.)moscow$
 regexp:^([\w\-\.]+\.)xn--d1acj3b$
 ```
+
+**Изображения для наглядности:**
+
+![Открыть настройки](/docs/img/nekoray_route_1.png)
+
+![Найти пункт меню](/docs/img/nekoray_route_2.png)
+
+![Заполнить поля](/docs/img/nekoray_route_3.png)
+
+![Сохранить](/docs/img/nekoray_route_4.png)
