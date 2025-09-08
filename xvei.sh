@@ -325,7 +325,7 @@ read_mail() {
     while true; do
         print_log "Print your REAL email (example: mymail@gmail.com):"
         read -r VALUE_YOUR_EMAIL < /dev/tty
-        if confirm_changes "'$VALUE_YOUR_EMAIL' - Is this the correct domain?"; then
+        if confirm_changes "'$VALUE_YOUR_EMAIL' - Is this the correct email?"; then
             break
         fi
         print_error "Mail not correct. Try again."
