@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nebula — a small guide to the Solar System</title>
+<style>
+  :root{--bg:#0b1020;--fg:#e7ecff;--muted:#9aa7d0;--card:#151c33;--accent:#7db1ff}
+  *{box-sizing:border-box}
+  body{margin:0;font:16px/1.6 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--fg)}
+  header{padding:48px 20px 24px;text-align:center}
+  h1{margin:0 0 6px;font-size:30px;letter-spacing:.5px}
+  header p{margin:0;color:var(--muted)}
+  main{max-width:900px;margin:0 auto;padding:16px 20px 64px}
+  nav{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:24px 0}
+  nav button{background:var(--card);color:var(--fg);border:1px solid #26325a;border-radius:999px;padding:8px 16px;cursor:pointer;font-size:14px}
+  nav button.active{background:var(--accent);color:#08122b;border-color:var(--accent);font-weight:600}
+  article{background:var(--card);border:1px solid #26325a;border-radius:14px;padding:22px 24px;margin-top:16px;display:none}
+  article.show{display:block}
+  article h2{margin:0 0 4px}
+  .facts{list-style:none;padding:0;margin:14px 0 0}
+  .facts li{padding:8px 0;border-top:1px dashed #2c396a}
+  .facts li:first-child{border-top:0}
+  .facts b{color:var(--accent)}
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Nebula</h1>
+  <p>A hobby guide to the eight planets, written for curious beginners.</p>
+</header>
+<main>
+  <nav id="nav"></nav>
+  <div id="content"></div>
+</main>
+<footer>Made for fun · last updated this spring · no cookies, no trackers</footer>
+<script>
+const planets = [
+  {n:"Mercury", d:"The smallest planet and the closest to the Sun. A year lasts only 88 Earth days.",
+   f:["Diameter: 4,879 km","Moons: 0","Day length: 59 Earth days","Surface: cratered rock, almost no atmosphere"]},
+  {n:"Venus", d:"Similar in size to Earth but wrapped in thick clouds of sulfuric acid. The hottest planet.",
+   f:["Diameter: 12,104 km","Moons: 0","Surface temperature: ~465 °C","Rotation: backwards, very slow"]},
+  {n:"Earth", d:"The only place known to have liquid water on its surface and life.",
+   f:["Diameter: 12,742 km","Moons: 1","Atmosphere: 78% nitrogen, 21% oxygen","71% of the surface is ocean"]},
+  {n:"Mars", d:"The red planet. Home to the largest volcano and the deepest canyon in the Solar System.",
+   f:["Diameter: 6,779 km","Moons: 2 (Phobos, Deimos)","Olympus Mons: ~22 km tall","Thin carbon-dioxide atmosphere"]},
+  {n:"Jupiter", d:"A gas giant more massive than all other planets combined. The Great Red Spot is a storm older than the telescope.",
+   f:["Diameter: 139,820 km","Moons: 95 known","Day length: under 10 hours","Faint ring system"]},
+  {n:"Saturn", d:"Famous for its bright rings made of ice and rock. Light enough to float in water, in theory.",
+   f:["Diameter: 116,460 km","Moons: 146 known","Rings span ~280,000 km","Hexagonal storm at the north pole"]},
+  {n:"Uranus", d:"An ice giant that rolls on its side, so its poles take turns facing the Sun for decades.",
+   f:["Diameter: 50,724 km","Moons: 28 known","Axial tilt: 98°","Pale blue-green from methane"]},
+  {n:"Neptune", d:"The windiest planet, with gusts faster than the speed of sound. Discovered by mathematics before it was seen.",
+   f:["Diameter: 49,244 km","Moons: 16 known","Winds up to 2,100 km/h","One orbit takes 165 Earth years"]},
+];
+const nav = document.getElementById('nav');
+const content = document.getElementById('content');
+planets.forEach((p,i)=>{
+  const b=document.createElement('button');
+  b.textContent=p.n; b.onclick=()=>select(i); nav.appendChild(b);
+  const art=document.createElement('article');
+  art.innerHTML=`<h2>${p.n}</h2><p>${p.d}</p><ul class="facts">${p.f.map(x=>`<li>${x.replace(/^([^:]+:)/,'<b>$1</b>')}</li>`).join('')}</ul>`;
+  content.appendChild(art);
+});
+function select(i){
+  [...nav.children].forEach((b,j)=>b.classList.toggle('active',i===j));
+  [...content.children].forEach((a,j)=>a.classList.toggle('show',i===j));
+}
+select(2);
+</script>
+</body>
+</html>

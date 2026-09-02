@@ -1,2 +1,12 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Keep LF everywhere: scripts break on Linux with CRLF, and it avoids churn.
+*.sh    text eol=lf
+*.py    text eol=lf
+*.html  text eol=lf
+*.md    text eol=lf
+xvei.sh text eol=lf
+
+*.dat   binary
+*.png   binary
