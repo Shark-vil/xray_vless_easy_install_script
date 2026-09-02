@@ -1,1 +1,6 @@
 *.code-workspace
+*.bak
+scratch-*
+/out/
+__pycache__/
+*.pyc
