@@ -26,7 +26,7 @@ cert_issue() {
             cert_selfsigned "$domain"
         fi
     fi
-    _cert_renew_hook "$domain"
+    _cert_install_deploy_hook "$domain"
 }
 
 cert_selfsigned() {
@@ -40,23 +40,43 @@ cert_selfsigned() {
         --cert-fullchain "$dir/self.crt" --cert-privkey "$dir/self.key" >/dev/null
 }
 
-_cert_renew_hook() {
-    local domain="$1"
-    local conf="/etc/letsencrypt/renewal/$domain.conf"
-    [ -f "$conf" ] || return 0
-    local line="renew_hook = /usr/local/bin/xvei _renew-hook"
-    if grep -qE '^\s*renew_hook' "$conf"; then
-        sed -i "s|^\s*renew_hook.*|$line|" "$conf"
-    else
-        echo "$line" >> "$conf"
+# Certbot runs every executable in renewal-hooks/deploy/ after ANY certificate
+# it manages is (re)issued - no per-domain wiring, survives cert re-creation.
+_cert_install_deploy_hook() {
+    # make sure `xvei` is callable by an absolute path from the hook
+    local bin="/usr/local/bin/xvei"
+    [ -e "$bin" ] || ln -sf "$XVEI_ROOT/xvei.sh" "$bin"
+
+    local dir="/etc/letsencrypt/renewal-hooks/deploy"
+    mkdir -p "$dir"
+    cat > "$dir/xvei-restart.sh" <<EOF
+#!/bin/sh
+# Installed by xvei: after a Let's Encrypt renewal, refresh services that
+# hold the certificate open (xray, nginx, hysteria2).
+exec "$bin" _renew-hook
+EOF
+    chmod +x "$dir/xvei-restart.sh"
+
+    # Older certbot builds only honour the per-domain renew_hook line.
+    local conf="/etc/letsencrypt/renewal/${1}.conf"
+    if [ -f "$conf" ] && ! grep -qE '^\s*renew_hook' "$conf"; then
+        echo "renew_hook = $bin _renew-hook" >> "$conf"
     fi
 }
 
-# called by certbot after a successful renewal (see xvei.sh dispatch)
+cert_hook_teardown() {
+    rm -f /etc/letsencrypt/renewal-hooks/deploy/xvei-restart.sh
+}
+
+# called by certbot after a successful renewal (see xvei.sh `_renew-hook`)
 cert_renew_hook_run() {
-    systemctl reload xray 2>/dev/null || systemctl restart xray 2>/dev/null || true
+    log "Let's Encrypt certificate renewed - restarting services"
     if command -v hysteria >/dev/null 2>&1 && [ -f "$HY2_CONFIG" ]; then
         hy2_sync_cert
-        systemctl restart "$HY2_SERVICE" 2>/dev/null || true
     fi
+    systemctl restart xray.service 2>/dev/null || true
+    command -v nginx >/dev/null 2>&1 && systemctl restart nginx.service 2>/dev/null || true
+    systemctl is-enabled "$HY2_SERVICE" >/dev/null 2>&1 \
+        && systemctl restart "$HY2_SERVICE" 2>/dev/null || true
+    check_service xray || true
 }

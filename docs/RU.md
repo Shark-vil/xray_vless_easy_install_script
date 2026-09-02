@@ -112,6 +112,11 @@ xvei site proxy gnu                        # реверс-прокси www.gnu.o
 Каждая команда, меняющая состояние, сама выполняет сборку → `xray -test` →
 подмену → перезапуск.
 
+Вместе с сертификатом ставится deploy-hook certbot
+(`/etc/letsencrypt/renewal-hooks/deploy/xvei-restart.sh`): после каждого
+продления Let's Encrypt он обновляет копию сертификата для Hysteria2 и
+перезапускает `xray`, `nginx` и `hysteria2`.
+
 ## Где что лежит
 
 | путь | содержимое |
