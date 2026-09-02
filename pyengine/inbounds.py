@@ -27,6 +27,8 @@ def _vless_tls(ib: dict, data: dict) -> dict:
     ws = st.get_type(data, "vless-ws")
     if ws:
         fallbacks.append({"path": "/" + ws["ws_path"], "dest": WS_SOCKET, "xver": 0})
+    # h2c goes to its own nginx listener; see pyengine/sites.py for why.
+    fallbacks.append({"alpn": "h2", "dest": "8081", "xver": 0})
     fallbacks.append({"dest": "8080", "xver": 0})
     return {
         "listen": "0.0.0.0",

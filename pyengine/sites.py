@@ -58,14 +58,23 @@ def resolve_proxy_url(raw: str) -> str:
 # ---- nginx vhost --------------------------------------------------------
 
 # The vless-tls inbound offers ALPN h2 + http/1.1. When a plain browser hits the
-# domain, Xray hands the *decrypted* stream to nginx here - and if the browser
-# picked h2, that stream is cleartext HTTP/2. nginx must therefore accept h2c on
-# this listener, otherwise the browser gets ERR_HTTP2_PROTOCOL_ERROR / -902.
-_HEAD = """server {
-    listen 127.0.0.1:8080 http2 default_server;
-    listen [::1]:8080 http2 default_server;
-    server_name _;
+# domain, Xray hands the *decrypted* stream to nginx - and if the browser picked
+# h2, that stream is cleartext HTTP/2 (h2c). Serving both h2c and HTTP/1.1 on one
+# socket only works on nginx >= 1.25.1, so instead we split by ALPN in Xray's
+# fallbacks: http/1.1 traffic lands on :8080, h2c on :8081. Each socket then only
+# ever sees a single protocol and the nginx version stops mattering. Without this
+# the h2c stream hits an HTTP/1.1-only nginx and the browser gets
+# ERR_HTTP2_PROTOCOL_ERROR / -902.
+_COMMON = """    server_name _;
     server_tokens off;
+"""
+
+_LISTEN_H1 = """    listen 127.0.0.1:8080 default_server;
+    listen [::1]:8080 default_server;
+"""
+
+_LISTEN_H2C = """    listen 127.0.0.1:8081 http2 default_server;
+    listen [::1]:8081 http2 default_server;
 """
 
 
@@ -114,4 +123,5 @@ def nginx_vhost(data: dict) -> str:
         auth_basic_user_file /dev/null;
     }
 """
-    return _HEAD + body + "}\n"
+    block = _COMMON + body + "}\n"
+    return f"server {{\n{_LISTEN_H1}{block}\nserver {{\n{_LISTEN_H2C}{block}"
