@@ -57,9 +57,13 @@ def resolve_proxy_url(raw: str) -> str:
 
 # ---- nginx vhost --------------------------------------------------------
 
+# The vless-tls inbound offers ALPN h2 + http/1.1. When a plain browser hits the
+# domain, Xray hands the *decrypted* stream to nginx here - and if the browser
+# picked h2, that stream is cleartext HTTP/2. nginx must therefore accept h2c on
+# this listener, otherwise the browser gets ERR_HTTP2_PROTOCOL_ERROR / -902.
 _HEAD = """server {
-    listen 127.0.0.1:8080 default_server;
-    listen [::1]:8080 default_server;
+    listen 127.0.0.1:8080 http2 default_server;
+    listen [::1]:8080 http2 default_server;
     server_name _;
     server_tokens off;
 """
