@@ -77,6 +77,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_in
 xvei                     интерактивное меню (или предложит установку)
 xvei install             мастер первичной установки
 xvei edit                интерактивное меню
+xvei apply               пересобрать + проверить + перезапустить из текущего состояния
 
 xvei add-inbound  <тип> [--port N] [--dest SNI] [--method M]
 xvei remove-inbound <tag>

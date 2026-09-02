@@ -74,6 +74,7 @@ The first run downloads the script tree to `/usr/local/lib/xvei` and symlinks
 xvei                     interactive menu (or offer to install)
 xvei install             guided first-time setup
 xvei edit                interactive menu
+xvei apply               regenerate + validate + restart from the current state
 
 xvei add-inbound  <type> [--port N] [--dest SNI] [--method M]
 xvei remove-inbound <tag>

@@ -105,6 +105,7 @@ xvei - Xray + Hysteria2 installer / live editor
   xvei                     open the interactive menu (or offer to install)
   xvei install             guided first-time setup
   xvei edit                interactive menu
+  xvei apply               regenerate + validate + restart from the current state
 
   xvei add-inbound  <type> [--port N] [--dest SNI] [--method M]
        types: vless-tls vless-ws vless-xhttp-reality vless-xhttp-tls
@@ -132,6 +133,7 @@ cmd="${1:-}"; shift || true
 case "$cmd" in
     ""|edit|menu)        main_menu ;;
     install)             wizard_install ;;
+    apply)               apply_all ;;
     add-inbound)         _apply_after add-inbound "$@" ;;
     remove-inbound)      _apply_after remove-inbound "$@" ;;
     add-outbound)        _apply_after add-outbound "$@" ;;
