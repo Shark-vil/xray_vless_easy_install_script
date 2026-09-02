@@ -52,7 +52,6 @@ wizard_install() {
     require_root
     ensure_core_deps
     xray_install
-    xray_update_geo
     py init >/dev/null 2>&1 || true
     py wizard
     py set-meta --server-ip "$(server_ip)" >/dev/null || true
@@ -106,6 +105,7 @@ xvei - Xray + Hysteria2 installer / live editor
   xvei                     open the interactive menu (or offer to install)
   xvei install             guided first-time setup
   xvei edit                interactive menu
+  xvei apply               regenerate + validate + restart from the current state
 
   xvei add-inbound  <type> [--port N] [--dest SNI] [--method M]
        types: vless-tls vless-ws vless-xhttp-reality vless-xhttp-tls
@@ -133,6 +133,7 @@ cmd="${1:-}"; shift || true
 case "$cmd" in
     ""|edit|menu)        main_menu ;;
     install)             wizard_install ;;
+    apply)               apply_all ;;
     add-inbound)         _apply_after add-inbound "$@" ;;
     remove-inbound)      _apply_after remove-inbound "$@" ;;
     add-outbound)        _apply_after add-outbound "$@" ;;

@@ -2,8 +2,6 @@
 # Xray-core install / removal / validation / geo data.
 
 XRAY_INSTALL_URL="https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
-GEOIP_URL="https://github.com/v2fly/geoip/releases/latest/download/geoip.dat"
-GEOSITE_URL="https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat"
 
 xray_installed() { command -v xray >/dev/null 2>&1; }
 
@@ -25,21 +23,20 @@ xray_remove_pkg() {
     bash -c "$(curl -fsSL "$XRAY_INSTALL_URL")" @ remove --purge || true
 }
 
+# The XTLS installer already ships geoip.dat / geosite.dat and puts them in the
+# right asset dir. This is an explicit opt-in refresh to the latest release.
 xray_update_geo() {
-    mkdir -p "$XRAY_DIR"
-    log "downloading geoip.dat (v2fly)"
-    wget -q -O "$XRAY_DIR/geoip.dat.new" "$GEOIP_URL" \
-        && mv "$XRAY_DIR/geoip.dat.new" "$XRAY_DIR/geoip.dat" \
-        || warn "geoip.dat download failed (keeping existing)"
-    log "downloading geosite.dat (v2fly/domain-list-community)"
-    wget -q -O "$XRAY_DIR/geosite.dat.new" "$GEOSITE_URL" \
-        && mv "$XRAY_DIR/geosite.dat.new" "$XRAY_DIR/geosite.dat" \
-        || warn "geosite.dat download failed (keeping existing)"
+    log "refreshing geoip.dat / geosite.dat via XTLS/Xray-install"
+    bash -c "$(curl -fsSL "$XRAY_INSTALL_URL")" @ install-geodata
 }
 
-# xray_test <config-file>
+# xray_test <config-file>   (file must end in .json - xray infers format from it)
 xray_test() {
-    xray -test -config "$1" 2>/dev/null || xray run -test -config "$1"
+    local out
+    out="$(xray run -test -config "$1" 2>&1)" && return 0
+    out="$(xray -test -config "$1" 2>&1)" && return 0
+    echo "$out" >&2
+    return 1
 }
 
 xray_restart() {

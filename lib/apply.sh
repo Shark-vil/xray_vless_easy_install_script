@@ -20,8 +20,9 @@ apply_all() {
     if [[ " $needs " == *" warp "* ]]; then warp_up; else warp_down; fi
     if [[ " $needs " == *" tor "*  ]]; then tor_up;  else tor_down;  fi
 
-    # 2. render new configs to *.new
-    local xnew="$XRAY_CONFIG.new" hnew="$HY2_CONFIG.new"
+    # 2. render new configs to staging files. Xray infers the config format from
+    #    the file extension, so the staging file MUST end in .json.
+    local xnew="$XRAY_DIR/.xvei-config.new.json" hnew="$XRAY_DIR/.xvei-hy2.new.yaml"
     rm -f "$xnew" "$hnew"
     mkdir -p "$XRAY_DIR"
     py build --xray-out "$xnew" --hy2-out "$hnew" || die "config generation failed"

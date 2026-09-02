@@ -74,6 +74,7 @@ The first run downloads the script tree to `/usr/local/lib/xvei` and symlinks
 xvei                     interactive menu (or offer to install)
 xvei install             guided first-time setup
 xvei edit                interactive menu
+xvei apply               regenerate + validate + restart from the current state
 
 xvei add-inbound  <type> [--port N] [--dest SNI] [--method M]
 xvei remove-inbound <tag>
@@ -87,7 +88,7 @@ xvei links [tag]         print client share links
 xvei qr <tag>            QR code for one inbound
 xvei status              services + active template
 xvei set-meta [--domain D --email E ...]
-xvei update-geo          refresh geoip/geosite (v2fly)
+xvei update-geo          refresh geoip/geosite (optional; the xray installer ships them)
 xvei self-update         re-fetch the script tree
 xvei remove              uninstall everything
 ```
