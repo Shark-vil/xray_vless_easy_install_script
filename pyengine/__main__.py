@@ -236,10 +236,15 @@ def cmd_wizard(a) -> int:
         data["cert"]["mode"] = "letsencrypt"
         data["cert"]["fullchain"] = f"/etc/letsencrypt/live/{data['domain']}/fullchain.pem"
         data["cert"]["privkey"] = f"/etc/letsencrypt/live/{data['domain']}/privkey.pem"
+
+    for itype in chosen:
+        editor.add_inbound(data, itype)
+
     if tls_family & set(chosen):
         if util.confirm("Configure the camouflage site (what a browser sees on the domain)?",
                         default_yes=False):
             editor.menu_site(data)
+
     country = util.choose("Country template", [
         ("russia", "Russia"), ("iran", "Iran"), ("china", "China"), ("none", "None"),
     ], "none")
@@ -248,8 +253,6 @@ def cmd_wizard(a) -> int:
         ("tunnel", "Everything through a tunnel"),
     ], "direct")
     tunnel = util.choose("Tunnel", [("warp", "WARP"), ("tor", "TOR")]) if mode == "tunnel" else None
-    for itype in chosen:
-        editor.add_inbound(data, itype)
     editor.set_template(data, country, mode, tunnel)
     st.save(data)
     util.ok("wizard complete; state saved")

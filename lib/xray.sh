@@ -30,9 +30,13 @@ xray_update_geo() {
     bash -c "$(curl -fsSL "$XRAY_INSTALL_URL")" @ install-geodata
 }
 
-# xray_test <config-file>
+# xray_test <config-file>   (file must end in .json - xray infers format from it)
 xray_test() {
-    xray -test -config "$1" 2>/dev/null || xray run -test -config "$1"
+    local out
+    out="$(xray run -test -config "$1" 2>&1)" && return 0
+    out="$(xray -test -config "$1" 2>&1)" && return 0
+    echo "$out" >&2
+    return 1
 }
 
 xray_restart() {
