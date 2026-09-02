@@ -73,6 +73,7 @@ xvei_remove() {
     tor_down
     xray_remove_pkg
     nginx_teardown
+    cert_hook_teardown
     rm -rf "$XRAY_DIR" "$HY2_DIR" "$CLIENT_DIR"
     ok "xvei removed"
 }

@@ -1,5 +1,6 @@
 # shellcheck shell=bash
-# nginx fallback target on 127.0.0.1:8080 for the vless-tls fallbacks.
+# nginx fallback target for the vless-tls fallbacks: HTTP/1.1 on 127.0.0.1:8080,
+# cleartext HTTP/2 (h2c) on 127.0.0.1:8081. Xray splits the two by ALPN.
 # The vhost + optional static "camouflage" site come from the python engine
 # (see pyengine/sites.py).
 

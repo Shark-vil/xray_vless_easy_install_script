@@ -109,6 +109,10 @@ xvei site proxy gnu                        # reverse-proxy www.gnu.org
 Every command that changes the state re-runs generate → `xray -test` → swap →
 restart automatically. If validation fails, the live config is left untouched.
 
+A certbot deploy hook (`/etc/letsencrypt/renewal-hooks/deploy/xvei-restart.sh`)
+is installed with the certificate: after every Let's Encrypt renewal it refreshes
+the Hysteria2 cert copy and restarts `xray`, `nginx` and `hysteria2`.
+
 ## Files
 
 | path | contents |
