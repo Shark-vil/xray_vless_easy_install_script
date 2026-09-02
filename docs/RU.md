@@ -90,7 +90,7 @@ xvei links [tag]         вывести клиентские ссылки
 xvei qr <tag>            QR-код для одного inbound
 xvei status              сервисы и активный шаблон
 xvei set-meta [--domain D --email E ...]
-xvei update-geo          обновить geoip/geosite (v2fly)
+xvei update-geo          обновить geoip/geosite (необязательно; их ставит установщик xray)
 xvei self-update         перекачать дерево скриптов
 xvei remove              полное удаление
 ```

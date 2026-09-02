@@ -52,7 +52,6 @@ wizard_install() {
     require_root
     ensure_core_deps
     xray_install
-    xray_update_geo
     py init >/dev/null 2>&1 || true
     py wizard
     py set-meta --server-ip "$(server_ip)" >/dev/null || true

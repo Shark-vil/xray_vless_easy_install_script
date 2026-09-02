@@ -87,7 +87,7 @@ xvei links [tag]         print client share links
 xvei qr <tag>            QR code for one inbound
 xvei status              services + active template
 xvei set-meta [--domain D --email E ...]
-xvei update-geo          refresh geoip/geosite (v2fly)
+xvei update-geo          refresh geoip/geosite (optional; the xray installer ships them)
 xvei self-update         re-fetch the script tree
 xvei remove              uninstall everything
 ```
