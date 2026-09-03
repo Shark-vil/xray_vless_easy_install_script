@@ -140,10 +140,16 @@ def cmd_rule(a) -> int:
 
 def cmd_template(a) -> int:
     data = _load()
-    mode = "tunnel" if a.tunnel else "direct"
-    if a.direct:
-        mode = "direct"
-    return _finish(editor.set_template(data, a.country, mode, a.tunnel), data)
+    if a.template in st.COUNTRY_TEMPLATES:
+        mode = "tunnel" if (a.tunnel and not a.direct) else "direct"
+        changed = editor.set_template(data, a.template, country_exit=a.exit,
+                                       mode=mode, tunnel=a.tunnel)
+    elif a.template == "popular":
+        changed = editor.set_template(data, a.template, tunnel=a.tunnel)
+    else:
+        mode = "tunnel" if (a.tunnel and not a.direct) else "direct"
+        changed = editor.set_template(data, a.template, mode=mode, tunnel=a.tunnel)
+    return _finish(changed, data)
 
 
 def cmd_menu(a) -> int:
@@ -199,8 +205,10 @@ def cmd_summary(_a) -> int:
     r = data["routing"]
     print(f"domain      : {data.get('domain') or '(none)'}")
     print(f"cert        : {data['cert']['mode']}")
-    print(f"template    : {r.get('country')} / exit={r.get('mode')}"
-          + (f" via {r.get('tunnel')}" if r.get('tunnel') else ""))
+    detail = f"exit={r.get('mode')}" + (f" via {r.get('tunnel')}" if r.get('tunnel') else "")
+    if r.get("country_exit"):
+        detail = f"in-country -> {r.get('country_exit')}, rest {detail}"
+    print(f"template    : {r.get('template')} / {detail}")
     print(f"outbounds   : warp={data['outbounds']['warp']} tor={data['outbounds']['tor']}")
     print("inbounds    :")
     for ib in data["inbounds"]:
@@ -245,15 +253,7 @@ def cmd_wizard(a) -> int:
                         default_yes=False):
             editor.menu_site(data)
 
-    country = util.choose("Country template", [
-        ("russia", "Russia"), ("iran", "Iran"), ("china", "China"), ("none", "None"),
-    ], "none")
-    mode = util.choose("Exit mode", [
-        ("direct", "Everything direct except in-country"),
-        ("tunnel", "Everything through a tunnel"),
-    ], "direct")
-    tunnel = util.choose("Tunnel", [("warp", "WARP"), ("tor", "TOR")]) if mode == "tunnel" else None
-    editor.set_template(data, country, mode, tunnel)
+    editor.menu_template(data)
     st.save(data)
     util.ok("wizard complete; state saved")
     return 0
@@ -321,9 +321,14 @@ def build_parser() -> argparse.ArgumentParser:
     ru.set_defaults(fn=cmd_rule)
 
     tp = sub.add_parser("template")
-    tp.add_argument("country", choices=list(st.COUNTRIES))
-    tp.add_argument("--tunnel", choices=["warp", "tor"], default=None)
-    tp.add_argument("--direct", action="store_true")
+    tp.add_argument("template", choices=list(st.TEMPLATES))
+    tp.add_argument("--exit", choices=["warp", "tor", "block"], default=None,
+                    help="exit for in-country traffic (russia|iran|china templates only, "
+                         "required -- never direct)")
+    tp.add_argument("--tunnel", choices=["warp", "tor"], default=None,
+                    help="tunnel for the rest of the traffic; required for 'popular'")
+    tp.add_argument("--direct", action="store_true",
+                    help="send the rest of the traffic direct (russia|iran|china|none only)")
     tp.set_defaults(fn=cmd_template)
 
     mn = sub.add_parser("menu")

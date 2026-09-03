@@ -1,15 +1,34 @@
-"""Routing rules: base guardrails + country template + exit mode + user edits."""
+"""Routing rules: base guardrails + template + exit mode + user edits."""
 from __future__ import annotations
 
 import outbounds as ob
 
-# Country -> (domain matchers, ip matchers) kept DIRECT (never tunneled/proxied).
-COUNTRY_DIRECT = {
+# Country -> (domain matchers, ip matchers) that identify "in-country" traffic.
+# This traffic is NEVER sent direct from the server: a VPS reaching straight
+# into that country's networks (banks, gov, ISPs...) burns/exposes the
+# server's real IP to that country's monitoring, which is exactly what
+# usually gets a hosting IP blacklisted. It always exits via WARP/TOR, or is
+# blocked outright -- see `country_exit` in routing state.
+COUNTRY_MATCHERS = {
     "russia": (["geosite:category-ru", "geosite:category-gov-ru"], ["geoip:ru"]),
     "iran": (["geosite:category-ir"], ["geoip:ir"]),
     "china": (["geosite:cn"], ["geoip:cn"]),
-    "none": ([], []),
 }
+
+# Global, non-country-specific destinations for the "popular" template: send
+# these direct (fast, no extra hop) and push everything else through a
+# tunnel. Picked from tags present in both the upstream v2fly
+# domain-list-community geosite.dat and Loyalsoldier's superset (what
+# XTLS/Xray-install ships), so they exist on essentially any install.
+POPULAR_DOMAINS = [
+    "geosite:google", "geosite:youtube", "geosite:instagram", "geosite:facebook",
+    "geosite:twitter", "geosite:telegram", "geosite:whatsapp", "geosite:netflix",
+    "geosite:tiktok", "geosite:discord", "geosite:spotify", "geosite:github",
+    "geosite:microsoft", "geosite:apple", "geosite:amazon", "geosite:openai",
+]
+
+_EXIT_TAGS = {"warp": ob.TAG_WARP, "tor": ob.TAG_TOR, "block": ob.TAG_BLOCK,
+              "direct": ob.TAG_DIRECT}
 
 _DOMAIN_PREFIXES = ("geosite:", "domain:", "full:", "regexp:", "keyword:")
 
@@ -74,17 +93,32 @@ def build(data: dict) -> dict:
     if data["outbounds"]["tor"]:
         rules += _rule(ob.TAG_TOR, user.get("tor", []))
 
-    # 3. country template: in-country stays direct
-    dom, ips = COUNTRY_DIRECT.get(routing.get("country") or "none", ([], []))
-    if dom:
-        rules.append({"type": "field", "outboundTag": ob.TAG_DIRECT, "domain": dom})
-    if ips:
-        rules.append({"type": "field", "outboundTag": ob.TAG_DIRECT, "ip": ips})
+    template = routing.get("template") or "none"
+
+    # 3. template rules
+    if template in COUNTRY_MATCHERS:
+        # In-country traffic: WARP / TOR / block -- never direct.
+        exit_name = routing.get("country_exit")
+        if exit_name not in ("warp", "tor", "block"):
+            exit_name = "block"
+        tag = _EXIT_TAGS[exit_name]
+        dom, ips = COUNTRY_MATCHERS[template]
+        if dom:
+            rules.append({"type": "field", "outboundTag": tag, "domain": dom})
+        if ips:
+            rules.append({"type": "field", "outboundTag": tag, "ip": ips})
+    elif template == "popular":
+        rules.append({"type": "field", "outboundTag": ob.TAG_DIRECT,
+                      "domain": list(POPULAR_DOMAINS)})
 
     # 4. exit mode: everything else
-    if routing.get("mode") == "tunnel" and routing.get("tunnel") in ("warp", "tor"):
-        tag = ob.TAG_WARP if routing["tunnel"] == "warp" else ob.TAG_TOR
-        rules.append({"type": "field", "outboundTag": tag, "network": "tcp,udp"})
+    if template == "popular":
+        # Everything outside the popular list goes through a tunnel.
+        tunnel = routing.get("tunnel") if routing.get("tunnel") in ("warp", "tor") else "warp"
+        rules.append({"type": "field", "outboundTag": _EXIT_TAGS[tunnel], "network": "tcp,udp"})
+    elif routing.get("mode") == "tunnel" and routing.get("tunnel") in ("warp", "tor"):
+        rules.append({"type": "field", "outboundTag": _EXIT_TAGS[routing["tunnel"]],
+                      "network": "tcp,udp"})
     else:
         rules.append({"type": "field", "outboundTag": ob.TAG_DIRECT, "network": "tcp,udp"})
 

@@ -50,7 +50,7 @@ main_menu() {
         echo " 1) Inbounds        (add / remove / list)"
         echo " 2) Outbounds       (WARP / TOR)"
         echo " 3) Routing rules   (block / tunnel warp / tunnel tor / direct)"
-        echo " 4) Country template & exit mode"
+        echo " 4) Routing template (country / popular direct) & exit mode"
         echo " 5) Camouflage site (auth / static preset / reverse-proxy)"
         echo " 6) Show links / QR"
         echo " 7) Status"

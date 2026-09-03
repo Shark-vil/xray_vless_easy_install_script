@@ -24,8 +24,10 @@ def build(data: dict) -> list[dict]:
         {"protocol": "blackhole", "tag": TAG_BLOCK, "settings": {}},
     ]
     routing = data["routing"]
-    want_warp = data["outbounds"]["warp"] or routing.get("tunnel") == "warp"
-    want_tor = data["outbounds"]["tor"] or routing.get("tunnel") == "tor"
+    want_warp = (data["outbounds"]["warp"] or routing.get("tunnel") == "warp"
+                 or routing.get("country_exit") == "warp")
+    want_tor = (data["outbounds"]["tor"] or routing.get("tunnel") == "tor"
+                or routing.get("country_exit") == "tor")
     if want_warp:
         out.append(_socks(TAG_WARP, WARP_SOCKS_PORT))
     if want_tor:

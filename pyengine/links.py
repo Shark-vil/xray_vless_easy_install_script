@@ -99,14 +99,23 @@ def _client_outbound(data: dict, ib: dict) -> dict:
 
 
 def full_config(data: dict, ib: dict) -> dict:
+    # Local split-tunneling on the CLIENT's own device: "direct" here means
+    # "use my own ISP connection, skip the VPS" -- it never touches the
+    # server, so it carries none of the server-side IP-exposure risk that
+    # `routing.build()` guards against for the country templates.
     rules: list[dict] = [
         {"type": "field", "outboundTag": "direct", "ip": ["geoip:private"]},
     ]
-    dom, ips = routing.COUNTRY_DIRECT.get(data["routing"].get("country") or "none", ([], []))
-    if dom:
-        rules.append({"type": "field", "outboundTag": "direct", "domain": dom})
-    if ips:
-        rules.append({"type": "field", "outboundTag": "direct", "ip": ips})
+    template = data["routing"].get("template") or "none"
+    if template in routing.COUNTRY_MATCHERS:
+        dom, ips = routing.COUNTRY_MATCHERS[template]
+        if dom:
+            rules.append({"type": "field", "outboundTag": "direct", "domain": dom})
+        if ips:
+            rules.append({"type": "field", "outboundTag": "direct", "ip": ips})
+    elif template == "popular":
+        rules.append({"type": "field", "outboundTag": "direct",
+                      "domain": list(routing.POPULAR_DOMAINS)})
     return {
         "log": {"loglevel": "warning"},
         "inbounds": [

@@ -32,14 +32,25 @@ only, no `pip` packages) regenerates `config.json`, validates it with
 second hop that hides the server IP.
 
 ### Routing templates
-Pick at install time (changeable later with `xvei template`):
+Pick at install time (changeable later with `xvei template`). These are
+**server-side** rules — what leaves the VPS on its own real IP, not what the
+client device does.
 
 * **Country template** — `russia` / `iran` / `china` / `none`.
-  In-country destinations (`geoip:<cc>` + local `geosite` categories) always go
-  **direct**; everything else follows the exit mode.
-* **Exit mode**
-  * `--direct` — everything except the in-country list goes straight out;
-  * `--tunnel warp|tor` — everything except the in-country list goes through the tunnel.
+  In-country destinations (`geoip:<cc>` + local `geosite` categories)
+  **never** go direct from the server — a VPS reaching straight into RU/IR/CN
+  networks exposes its real IP to them and risks getting the server
+  blacklisted. That traffic requires `--exit warp|tor|block`:
+  * `warp` / `tor` — leaves through a second hop, the server IP stays hidden;
+  * `block` — dropped outright.
+  Everything else (not in-country) follows the regular exit mode:
+  * `--direct` — straight out;
+  * `--tunnel warp|tor` — through a tunnel.
+* **"Popular direct" template** — `popular`.
+  Global, non-country-specific services (`geosite:youtube`, `instagram`,
+  `google`, `telegram`, `netflix`, `github`, etc. — tags present in
+  essentially any geosite.dat build) go direct for speed; everything else
+  requires `--tunnel warp|tor`.
 
 ### Editable rule buckets
 `block`, `direct`, `warp`, `tor` — add/remove matchers
@@ -81,7 +92,9 @@ xvei remove-inbound <tag>
 xvei add-outbound   <warp|tor>
 xvei remove-outbound <warp|tor>
 xvei rule <add|remove|list> <block|warp|tor|direct> [matcher ...]
-xvei template <russia|iran|china|none> [--tunnel <warp|tor> | --direct]
+xvei template <russia|iran|china> --exit <warp|tor|block> [--tunnel <warp|tor> | --direct]
+xvei template popular --tunnel <warp|tor>
+xvei template none [--tunnel <warp|tor> | --direct]
 xvei site [list | auth | blank | 404 | <preset> | proxy <url|preset>]
 
 xvei links [tag]         print client share links
@@ -100,7 +113,8 @@ xvei add-inbound vless-xhttp-reality --dest www.samsung.com
 xvei add-outbound tor
 xvei rule add tor geosite:openai
 xvei rule add block geosite:category-ads-all
-xvei template russia --tunnel warp        # RU direct, rest via WARP
+xvei template russia --exit warp --direct  # RU traffic via WARP, rest direct
+xvei template popular --tunnel tor         # popular sites direct, rest via TOR
 xvei remove-inbound hy2                    # stops & removes Hysteria2, keeps the rest
 xvei site game2048                         # serve a 2048 game on the domain
 xvei site proxy gnu                        # reverse-proxy www.gnu.org

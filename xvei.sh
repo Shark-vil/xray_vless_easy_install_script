@@ -115,7 +115,9 @@ xvei - Xray + Hysteria2 installer / live editor
   xvei add-outbound   <warp|tor>
   xvei remove-outbound <warp|tor>
   xvei rule <add|remove|list> <block|warp|tor|direct> [matcher ...]
-  xvei template <russia|iran|china|none> [--tunnel <warp|tor> | --direct]
+  xvei template <russia|iran|china> --exit <warp|tor|block> [--tunnel <warp|tor> | --direct]
+  xvei template popular --tunnel <warp|tor>
+  xvei template none [--tunnel <warp|tor> | --direct]
   xvei site [list | auth | blank | 404 | <preset> | proxy <url|preset>]
        presets: nebula critters game2048 snake notes
 

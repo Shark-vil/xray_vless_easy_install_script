@@ -34,14 +34,24 @@ XVEI ставит и настраивает [Xray-core](https://github.com/XTLS/
 второй прыжок, скрывающий IP сервера.
 
 ### Шаблоны маршрутизации
-Выбираются при установке (потом меняются через `xvei template`):
+Выбираются при установке (потом меняются через `xvei template`). Это правила
+для **сервера**: то, что уходит с реального IP VPS, а не с устройства клиента.
 
 * **Шаблон страны** — `russia` / `iran` / `china` / `none`.
-  Внутристрановые адреса (`geoip:<cc>` + локальные категории `geosite`) всегда
-  идут **напрямую**; остальное — по режиму выхода.
-* **Режим выхода**
-  * `--direct` — всё, кроме внутристранового списка, идёт напрямую наружу;
-  * `--tunnel warp|tor` — всё, кроме внутристранового списка, идёт через туннель.
+  Внутристрановые адреса (`geoip:<cc>` + локальные категории `geosite`)
+  **никогда** не идут напрямую с сервера — прямой выход VPS в сети РФ/Ирана/
+  Китая палит его реальный IP перед этой сетью и рискует довести до блокировки.
+  Вместо этого такой трафик обязателен `--exit warp|tor|block`:
+  * `warp` / `tor` — уходит вторым прыжком, IP сервера не светится;
+  * `block` — просто блокируется.
+  Остальной (не внутристрановой) трафик идёт по обычному режиму выхода:
+  * `--direct` — напрямую наружу;
+  * `--tunnel warp|tor` — через туннель.
+* **Шаблон «Популярное напрямую»** — `popular`.
+  Общемировые сервисы (`geosite:youtube`, `instagram`, `google`, `telegram`,
+  `netflix`, `github` и т.д. — теги, которые есть практически в любой сборке
+  geosite.dat) идут напрямую для скорости; весь остальной трафик обязателен
+  `--tunnel warp|tor`.
 
 ### Редактируемые группы правил
 `block`, `direct`, `warp`, `tor` — добавляйте/удаляйте матчеры
@@ -84,7 +94,9 @@ xvei remove-inbound <tag>
 xvei add-outbound   <warp|tor>
 xvei remove-outbound <warp|tor>
 xvei rule <add|remove|list> <block|warp|tor|direct> [матчер ...]
-xvei template <russia|iran|china|none> [--tunnel <warp|tor> | --direct]
+xvei template <russia|iran|china> --exit <warp|tor|block> [--tunnel <warp|tor> | --direct]
+xvei template popular --tunnel <warp|tor>
+xvei template none [--tunnel <warp|tor> | --direct]
 xvei site [list | auth | blank | 404 | <заготовка> | proxy <url|preset>]
 
 xvei links [tag]         вывести клиентские ссылки
@@ -103,7 +115,8 @@ xvei add-inbound vless-xhttp-reality --dest www.samsung.com
 xvei add-outbound tor
 xvei rule add tor geosite:openai
 xvei rule add block geosite:category-ads-all
-xvei template russia --tunnel warp        # RU напрямую, остальное через WARP
+xvei template russia --exit warp --direct  # RU-трафик через WARP, остальное напрямую
+xvei template popular --tunnel tor         # популярные сайты напрямую, остальное через TOR
 xvei remove-inbound hy2                    # остановит и удалит Hysteria2, остальное не тронет
 xvei site game2048                         # отдавать на домене игру 2048
 xvei site proxy gnu                        # реверс-прокси www.gnu.org
@@ -144,9 +157,11 @@ assets/sites/*     автономные сайты-прикрытия (без в
 
 ## Совет по маршрутизации на клиенте
 
-Шаблон страны уже кладёт правила «внутристрановое → напрямую» в
-`~/xray_eis/<tag>.json`. Если приложение импортирует только ссылку `vless://`,
-добавьте на клиенте правила direct вручную, например для России:
+Это про локальный сплит-туннелинг на **устройстве клиента** (свой ISP вместо
+VPN) — с сервером он не связан и не палит его IP. Шаблон уже кладёт такие
+правила «внутристрановое / популярное → напрямую» в `~/xray_eis/<tag>.json`.
+Если приложение импортирует только ссылку `vless://`, добавьте на клиенте
+правила direct вручную, например для России:
 
 **IP:** `geoip:private`, `geoip:ru`
 **Домены:** `geosite:private`, `geosite:category-ru`, `geosite:category-gov-ru`

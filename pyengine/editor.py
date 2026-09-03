@@ -125,9 +125,15 @@ def set_outbound(data: dict, name: str, on: bool) -> bool:
         util.die("outbound must be 'warp' or 'tor'")
     if data["outbounds"][name] == on:
         return False
-    if not on and data["routing"].get("tunnel") == name:
-        util.die(f"{name} is the active tunnel; switch the template first "
-                 f"(template <country> --direct)")
+    if not on:
+        r = data["routing"]
+        if r.get("tunnel") == name:
+            util.die(f"{name} is the active tunnel; switch the template first "
+                     f"(template {r.get('template', 'none')} --direct)")
+        if r.get("country_exit") == name:
+            util.die(f"{name} is the exit for in-country traffic; switch the "
+                     f"template first (template {r.get('template')} --exit "
+                     "block|warp|tor)")
     data["outbounds"][name] = on
     if not on:
         data["rules"][name] = []
@@ -165,23 +171,62 @@ def rule_op(data: dict, op: str, bucket: str, matches: list[str]) -> bool:
     return changed
 
 
-def set_template(data: dict, country: str, mode: str, tunnel: str | None) -> bool:
-    if country not in st.COUNTRIES:
-        util.die(f"country must be one of {', '.join(st.COUNTRIES)}")
-    if mode not in ("direct", "tunnel"):
-        util.die("mode must be 'direct' or 'tunnel'")
-    if mode == "tunnel":
-        if tunnel not in ("warp", "tor"):
-            util.die("tunnel mode needs --tunnel warp|tor")
-        data["outbounds"][tunnel] = True
+def set_template(data: dict, template: str, *, country_exit: str | None = None,
+                  mode: str | None = None, tunnel: str | None = None) -> bool:
+    if template not in st.TEMPLATES:
+        util.die(f"template must be one of {', '.join(st.TEMPLATES)}")
+
     r = data["routing"]
     before = dict(r)
-    r["country"], r["mode"] = country, mode
-    r["tunnel"] = tunnel if mode == "tunnel" else None
+
+    if template in st.COUNTRY_TEMPLATES:
+        if country_exit not in ("warp", "tor", "block"):
+            util.die("country templates need --exit warp|tor|block "
+                      "(in-country traffic is never sent direct from the server "
+                      "-- that would expose its real IP)")
+        if country_exit in ("warp", "tor"):
+            data["outbounds"][country_exit] = True
+        mode = mode or r.get("mode") or "direct"
+        if mode not in ("direct", "tunnel"):
+            util.die("mode must be 'direct' or 'tunnel'")
+        if mode == "tunnel":
+            if tunnel not in ("warp", "tor"):
+                util.die("tunnel mode needs --tunnel warp|tor")
+            data["outbounds"][tunnel] = True
+        r["template"] = template
+        r["country_exit"] = country_exit
+        r["mode"] = mode
+        r["tunnel"] = tunnel if mode == "tunnel" else None
+
+    elif template == "popular":
+        if tunnel not in ("warp", "tor"):
+            util.die("the 'popular' template needs --tunnel warp|tor "
+                      "(everything outside the popular list goes through it)")
+        data["outbounds"][tunnel] = True
+        r["template"] = "popular"
+        r["country_exit"] = None
+        r["mode"] = "tunnel"
+        r["tunnel"] = tunnel
+
+    else:  # none
+        mode = mode or "direct"
+        if mode not in ("direct", "tunnel"):
+            util.die("mode must be 'direct' or 'tunnel'")
+        if mode == "tunnel":
+            if tunnel not in ("warp", "tor"):
+                util.die("tunnel mode needs --tunnel warp|tor")
+            data["outbounds"][tunnel] = True
+        r["template"] = "none"
+        r["country_exit"] = None
+        r["mode"] = mode
+        r["tunnel"] = tunnel if mode == "tunnel" else None
+
     changed = r != before
     if changed:
-        util.ok(f"template: {country}, exit={mode}"
-                + (f" via {tunnel}" if tunnel else ""))
+        detail = f"exit={r['mode']}" + (f" via {r['tunnel']}" if r["tunnel"] else "")
+        if r.get("country_exit"):
+            detail = f"in-country -> {r['country_exit']}, rest {detail}"
+        util.ok(f"template: {template}, {detail}")
     return changed
 
 
@@ -310,17 +355,42 @@ def menu_rules(data: dict) -> bool:
 
 
 def menu_template(data: dict) -> bool:
-    country = util.choose("Country template", [
-        ("russia", "Russia (geoip:ru + category-ru direct)"),
-        ("iran", "Iran (geoip:ir + category-ir direct)"),
-        ("china", "China (geoip:cn + geosite:cn direct)"),
+    r = data["routing"]
+    template = util.choose("Template", [
+        ("russia", "Russia (geoip:ru + category-ru -> WARP/TOR/block, never direct)"),
+        ("iran", "Iran (geoip:ir + category-ir -> WARP/TOR/block, never direct)"),
+        ("china", "China (geoip:cn + geosite:cn -> WARP/TOR/block, never direct)"),
+        ("popular", "Popular direct (YouTube/Instagram/... direct, rest via WARP/TOR)"),
         ("none", "None (only private direct)"),
-    ], data["routing"].get("country") or "none")
+    ], r.get("template") or "none")
+
+    if template in st.COUNTRY_TEMPLATES:
+        country_exit = util.choose(
+            "In-country traffic exits via",
+            [("warp", "WARP (Cloudflare)"), ("tor", "TOR"), ("block", "Block outright")],
+            r.get("country_exit") or "block")
+        mode = util.choose("Exit mode for everything else", [
+            ("direct", "Direct"),
+            ("tunnel", "Through a tunnel (WARP/TOR)"),
+        ], r.get("mode") or "direct")
+        tunnel = None
+        if mode == "tunnel":
+            tunnel = util.choose("Tunnel", [("warp", "WARP (Cloudflare)"), ("tor", "TOR")],
+                                  r.get("tunnel") or "warp")
+        return set_template(data, template, country_exit=country_exit, mode=mode, tunnel=tunnel)
+
+    if template == "popular":
+        tunnel = util.choose("Tunnel for everything outside the popular list",
+                              [("warp", "WARP (Cloudflare)"), ("tor", "TOR")],
+                              r.get("tunnel") or "warp")
+        return set_template(data, template, tunnel=tunnel)
+
     mode = util.choose("Exit mode", [
-        ("direct", "Everything direct except in-country list"),
+        ("direct", "Everything direct"),
         ("tunnel", "Everything through a tunnel (WARP/TOR)"),
-    ], data["routing"].get("mode") or "direct")
+    ], r.get("mode") or "direct")
     tunnel = None
     if mode == "tunnel":
-        tunnel = util.choose("Tunnel", [("warp", "WARP (Cloudflare)"), ("tor", "TOR")])
-    return set_template(data, country, mode, tunnel)
+        tunnel = util.choose("Tunnel", [("warp", "WARP (Cloudflare)"), ("tor", "TOR")],
+                              r.get("tunnel") or "warp")
+    return set_template(data, template, mode=mode, tunnel=tunnel)
