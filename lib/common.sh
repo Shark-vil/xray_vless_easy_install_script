@@ -15,7 +15,6 @@ HY2_SERVICE="hysteria-server"
 
 NGINX_SITE_AVAILABLE="/etc/nginx/sites-available/default"
 NGINX_SITE_ENABLED="/etc/nginx/sites-enabled/default"
-NGINX_XVEI_SITE="/etc/nginx/sites-enabled/xvei.conf"
 
 if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
     CLIENT_DIR="$(getent passwd "$SUDO_USER" | cut -d: -f6)/xray_eis"
@@ -37,16 +36,25 @@ err()   { echo -e "${_c_err}[xvei:error]${_c_off} $*" >&2; }
 die()   { err "$*"; exit 1; }
 
 # --- python engine bridge ------------------------------------------------
-py() {
-    local bin
-    bin="$(command -v python3 || command -v python)" || die "python3 not found"
-    "$bin" "$PYENGINE" "$@"
+# The engine needs Python >= 3.7. A plain `python3` is not always that: EL8 and
+# openSUSE Leap 15 ship 3.6 under that name, and `python` may be Python 2.
+find_python() {
+    local c
+    for c in python3 python3.13 python3.12 python3.11 python3.10 python3.9 python3.8 python3.7 python; do
+        command -v "$c" >/dev/null 2>&1 || continue
+        if "$c" -c 'import sys; sys.exit(sys.version_info < (3, 7))' 2>/dev/null; then
+            command -v "$c"
+            return 0
+        fi
+    done
+    return 1
 }
 
-# py_changed <args...> : returns 0 if state changed, 1 on error, 2 if no change
-py_changed() {
-    py "$@"
-    return $?
+_PYBIN=""
+py() {
+    [ -n "$_PYBIN" ] || _PYBIN="$(find_python)" \
+        || die "Python >= 3.7 not found; run: xvei install (it sets up dependencies)"
+    "$_PYBIN" "$PYENGINE" "$@"
 }
 
 # --- misc ----------------------------------------------------------------
@@ -54,11 +62,8 @@ require_root() {
     [ "$(id -u)" -eq 0 ] || die "run as root"
 }
 
-is_number() { [[ "$1" =~ ^[0-9]+$ ]]; }
-
-port_in_use() {
-    ss -tulnH 2>/dev/null | grep -qE "[:.]${1}[[:space:]]"
-}
+# true when an interactive terminal is available for prompts
+have_tty() { { : < /dev/tty; } 2>/dev/null; }
 
 confirm() {
     local prompt="$1" def="${2:-y}" ans

@@ -9,6 +9,10 @@ apply_all() {
     local needs; needs="$(py needs)"
     log "state requires: ${needs:-nothing extra}"
 
+    # 0. an active firewall would silently break certbot (:80) and clients;
+    #    offer to open what is missing (additive only, never enables one)
+    fw_check
+
     # 1. provision external resources to match desired state.
     #    cert_issue may stop nginx/xray for a standalone challenge; nginx_setup
     #    then rewrites the fallback vhost and brings nginx back up.

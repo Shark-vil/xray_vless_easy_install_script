@@ -54,8 +54,9 @@ main_menu() {
         echo " 5) Camouflage site (auth / static preset / reverse-proxy)"
         echo " 6) Show links / QR"
         echo " 7) Status"
-        echo " 8) Update geo data"
-        echo " 9) Uninstall xvei"
+        echo " 8) Firewall        (optional: open ports / lockdown)"
+        echo " 9) Update geo data"
+        echo "10) Uninstall xvei"
         echo " 0) Exit"
         local c; c="$(read_value "Choose")"
         case "$c" in
@@ -66,8 +67,9 @@ main_menu() {
             5) py menu site;      _menu_apply_if_changed $? ;;
             6) menu_links ;;
             7) menu_status ;;
-            8) xray_update_geo && xray_restart && ok "geo updated" ;;
-            9) confirm "Really uninstall xvei and all services?" n && { xvei_remove; return; } ;;
+            8) menu_firewall ;;
+            9) xray_update_geo && xray_restart && ok "geo updated" ;;
+            10) confirm "Really uninstall xvei and all services?" n && { xvei_remove; return; } ;;
             0|"") return 0 ;;
             *) warn "unknown choice" ;;
         esac

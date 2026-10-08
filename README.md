@@ -69,17 +69,96 @@ fallback for `vless-tls` / `vless-xhttp-tls`). Change any time with `xvei site`:
   proxied (bot walls, host checks, absolute redirects), so a few known-proxyable
   ones are presets: `example`, `rfc`, `cern`, `gnu`, `iana`.
 
+## Supported systems
+
+| system | status |
+|---|---|
+| Ubuntu 20.04 / 22.04 / 24.04 | ✅ supported |
+| Debian 11 / 12 / 13 | ✅ supported |
+| CentOS Stream 9 | ✅ supported |
+| AlmaLinux / Rocky / RHEL 9, CentOS Stream 10, Fedora | ❓ unknown — not tested, probably works |
+| CentOS 7, CentOS Stream 8, other EL8 | ❌ not supported (EOL, Python 3.6) |
+| Alpine, systems without systemd | ❌ not supported |
+
+On any other system the installer warns and asks before continuing.
+
+Requirements: root, systemd, Python ≥ 3.7 (installed automatically if
+missing). Everything else (xray, certbot, nginx, hysteria2, docker for WARP,
+tor) is installed on demand.
+
+On CentOS the installer additionally:
+* enables **EPEL** (certbot, tor and qrencode only live there);
+* writes the nginx vhost to `/etc/nginx/conf.d/` instead of `sites-enabled/`;
+* with SELinux enforcing, labels nginx's local ports 8080/8081 as
+  `http_port_t` and turns on `httpd_can_network_connect` for the
+  reverse-proxy camouflage site;
+* enables `certbot-renew.timer` (shipped disabled there).
+
 ## Install
+
+Requires `curl`.
+
+Ubuntu / Debian:
 
 ```bash
 apt-get update && apt-get -y install curl
+```
+
+CentOS:
+
+```bash
+dnf -y install curl tar
+```
+
+### Full install
+
+Downloads the script and runs the setup wizard: Xray plus everything selected
+in it (certificate, nginx, Hysteria2, WARP, TOR).
+
+```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) install
 ```
 
-The first run downloads the script tree to `/usr/local/lib/xvei` and symlinks
-`xvei` into `/usr/local/bin`, so afterwards just run `xvei`.
+### Script only
+
+Downloads the script to `/usr/local/lib/xvei` and creates the `xvei` command.
+Components (Xray, certificate, nginx, etc.) are not installed.
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) help
+```
+
+Run the setup wizard:
+
+```bash
+xvei install
+```
+
+### From a git clone
+
+```bash
+git clone https://github.com/Shark-vil/xray_vless_easy_install_script.git
+cd xray_vless_easy_install_script
+bash xvei.sh install
+```
+
+The `xvei` command points to the clone folder. Update with `git pull`;
+`xvei self-update` is not available in this mode.
+
+### How the one-liner works
+
+`bash <(curl …)` downloads only `xvei.sh`. The script downloads the full
+repository to `/usr/local/lib/xvei`, creates the symlink
+`/usr/local/bin/xvei` → `/usr/local/lib/xvei/xvei.sh` and re-runs itself with
+the same argument. Without an argument it opens the menu, which offers to
+install.
+
+`xvei.sh` is the repository file, `xvei` is the installed command:
+`xvei install` is the same as `bash /usr/local/lib/xvei/xvei.sh install`.
 
 ## Usage
+
+The script is called as `xvei`:
 
 ```
 xvei                     interactive menu (or offer to install)
@@ -100,6 +179,7 @@ xvei site [list | auth | blank | 404 | <preset> | proxy <url|preset>]
 xvei links [tag]         print client share links
 xvei qr <tag>            QR code for one inbound
 xvei status              services + active template
+xvei firewall [status | open | setup]   see "Firewall" below
 xvei set-meta [--domain D --email E ...]
 xvei update-geo          refresh geoip/geosite (optional; the xray installer ships them)
 xvei self-update         re-fetch the script tree
@@ -125,7 +205,31 @@ restart automatically. If validation fails, the live config is left untouched.
 
 A certbot deploy hook (`/etc/letsencrypt/renewal-hooks/deploy/xvei-restart.sh`)
 is installed with the certificate: after every Let's Encrypt renewal it refreshes
-the Hysteria2 cert copy and restarts `xray`, `nginx` and `hysteria2`.
+the Hysteria2 cert copy and restarts `xray`, `nginx` and `hysteria2`. Pre/post
+hooks (`renewal-hooks/{pre,post}/xvei-free-port80.sh`) stop nginx for the
+renewal challenge only if it holds `:80`, then start it again.
+
+## Firewall
+
+xvei **never enables, resets or tightens a firewall by itself** — a wrong
+default-deny can cut you off from SSH (especially if sshd runs on a
+non-standard port).
+
+* If **ufw** or **firewalld** is already active and blocks ports the current
+  config needs (inbound ports, plus `80/tcp` for Let's Encrypt), every apply
+  lists them and asks whether to open them. This only *adds* allow rules.
+  Without a terminal it just prints a warning.
+* `xvei firewall status` — which firewall is active, the detected SSH port(s),
+  and which needed ports are open or closed.
+* `xvei firewall open` — add allow rules for the needed ports (active firewall only).
+* `xvei firewall setup` — **opt-in** lockdown: deny all incoming except SSH +
+  xvei ports. The SSH port is detected from `sshd -T`, from what sshd listens
+  on, and from the current SSH session. The full plan is shown first, you can
+  add extra ports (e.g. `2222/tcp 27015/udp`), and nothing happens without an
+  explicit "yes". Uses ufw on Debian/Ubuntu (existing rules are kept unless
+  you choose `ufw reset`), firewalld on CentOS.
+
+The same actions are in the menu: `xvei` → `8) Firewall`.
 
 ## Files
 
@@ -134,7 +238,7 @@ the Hysteria2 cert copy and restarts `xray`, `nginx` and `hysteria2`.
 | `/usr/local/etc/xray/xvei-state.json` | source of truth (root, `0600`) |
 | `/usr/local/etc/xray/config.json` | generated Xray config (`.bak` kept) |
 | `/etc/hysteria/config.yaml` | generated Hysteria2 config (+ `cert.crt`/`cert.key`) |
-| `/etc/nginx/sites-enabled/xvei.conf`, `/var/www/xvei-site` | fallback vhost + camouflage site |
+| `/etc/nginx/sites-enabled/xvei.conf` (Debian/Ubuntu) or `/etc/nginx/conf.d/xvei.conf` (CentOS), `/var/www/xvei-site` | fallback vhost + camouflage site |
 | `~/xray_eis/<tag>.link` | client share link per inbound |
 | `~/xray_eis/<tag>.json` | full Xray client config per inbound (not for `hysteria2`) |
 

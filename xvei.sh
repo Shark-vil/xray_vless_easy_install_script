@@ -42,7 +42,7 @@ fi
 
 # --- load modules ------------------------------------------------------
 # shellcheck source=lib/common.sh
-for m in common deps xray nginx certs hysteria2 warp tor apply menu; do
+for m in common deps xray nginx certs hysteria2 warp tor firewall apply menu; do
     # shellcheck disable=SC1090
     source "$XVEI_ROOT/lib/$m.sh"
 done
@@ -50,6 +50,9 @@ done
 # --- high level flows ------------------------------------------------
 wizard_install() {
     require_root
+    os_check_supported
+    # bootstrap already links it; a run from a git clone needs it too
+    [ -e /usr/local/bin/xvei ] || ln -sf "$XVEI_ROOT/xvei.sh" /usr/local/bin/xvei
     ensure_core_deps
     xray_install
     py init >/dev/null 2>&1 || true
@@ -124,6 +127,10 @@ xvei - Xray + Hysteria2 installer / live editor
   xvei links [tag]         print client share links
   xvei qr <tag>            print a QR code for one inbound
   xvei status              services + active template
+  xvei firewall [status | open | setup]
+       status: show the firewall and which needed ports are open
+       open:   add allow rules for the ports xvei needs (active ufw/firewalld)
+       setup:  opt-in "deny incoming except SSH + xvei ports" (asks first)
   xvei set-meta [--domain D --email E ...]
   xvei update-geo          refresh geoip/geosite
   xvei self-update         re-fetch the script tree
@@ -152,6 +159,12 @@ case "$cmd" in
                          [ -f "$f" ] || die "no link file: $f"
                          qrencode -t ANSIUTF8 "$(cat "$f")" ;;
     status)              menu_status ;;
+    firewall)            case "${1:-status}" in
+                             status) fw_status ;;
+                             open)   fw_open ;;
+                             setup)  fw_setup ;;
+                             *)      die "usage: xvei firewall [status|open|setup]" ;;
+                         esac ;;
     update-geo)          require_root; xray_update_geo; xray_restart; ok "geo updated" ;;
     self-update)         self_update ;;
     remove|uninstall)    xvei_remove ;;

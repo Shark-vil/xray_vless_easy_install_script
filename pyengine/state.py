@@ -134,3 +134,21 @@ def needs(data: dict) -> list[str]:
     # dedupe, keep order
     seen: set[str] = set()
     return [x for x in out if not (x in seen or seen.add(x))]
+
+
+def public_ports(data: dict) -> list[str]:
+    """Ports clients (and Let's Encrypt) must reach, as 'PORT/proto'."""
+    out: list[str] = []
+    if "cert" in needs(data):
+        out.append("80/tcp")  # http-01 challenge for issue + renewal
+    for ib in data["inbounds"]:
+        t, port = ib["type"], ib.get("port", 443)
+        if t in ("vless-tls", "vless-xhttp-reality") or (
+                t == "vless-xhttp-tls" and ib.get("standalone")):
+            out.append(f"{port}/tcp")
+        elif t == "shadowsocks":
+            out += [f"{port}/tcp", f"{port}/udp"]
+        elif t == "hysteria2":
+            out.append(f"{port}/udp")
+    seen: set[str] = set()
+    return [x for x in out if not (x in seen or seen.add(x))]

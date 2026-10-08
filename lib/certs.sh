@@ -27,6 +27,21 @@ cert_issue() {
         fi
     fi
     _cert_install_deploy_hook "$domain"
+    command -v certbot >/dev/null 2>&1 && _cert_enable_renew_timer
+}
+
+# Debian/Ubuntu's certbot enables its renewal timer itself; the Fedora/EPEL
+# build ships certbot-renew.timer disabled, so the certificate would silently
+# expire after 90 days.
+_cert_enable_renew_timer() {
+    local t
+    for t in certbot.timer certbot-renew.timer snap.certbot.renew.timer; do
+        if systemctl cat "$t" >/dev/null 2>&1; then
+            systemctl enable --now "$t" >/dev/null 2>&1 || true
+            return 0
+        fi
+    done
+    warn "no certbot renewal timer found; schedule 'certbot renew' yourself (cron)"
 }
 
 cert_selfsigned() {
@@ -57,6 +72,27 @@ exec "$bin" _renew-hook
 EOF
     chmod +x "$dir/xvei-restart.sh"
 
+    # Renewal reuses the standalone authenticator, which needs :80. On
+    # RHEL-family systems the stock nginx.conf keeps its own server on :80,
+    # so stop nginx for the challenge - only if it really holds the port.
+    mkdir -p /etc/letsencrypt/renewal-hooks/pre /etc/letsencrypt/renewal-hooks/post
+    cat > /etc/letsencrypt/renewal-hooks/pre/xvei-free-port80.sh <<'EOF'
+#!/bin/sh
+# Installed by xvei: free :80 for the standalone renewal challenge.
+if ss -ltnpH 'sport = :80' 2>/dev/null | grep -q nginx; then
+    systemctl stop nginx && touch /run/xvei-nginx-stopped
+fi
+EOF
+    cat > /etc/letsencrypt/renewal-hooks/post/xvei-free-port80.sh <<'EOF'
+#!/bin/sh
+# Installed by xvei: bring nginx back if the pre hook stopped it.
+if [ -e /run/xvei-nginx-stopped ]; then
+    rm -f /run/xvei-nginx-stopped
+    systemctl start nginx
+fi
+EOF
+    chmod +x /etc/letsencrypt/renewal-hooks/pre/xvei-free-port80.sh              /etc/letsencrypt/renewal-hooks/post/xvei-free-port80.sh
+
     # Older certbot builds only honour the per-domain renew_hook line.
     local conf="/etc/letsencrypt/renewal/${1}.conf"
     if [ -f "$conf" ] && ! grep -qE '^\s*renew_hook' "$conf"; then
@@ -65,7 +101,7 @@ EOF
 }
 
 cert_hook_teardown() {
-    rm -f /etc/letsencrypt/renewal-hooks/deploy/xvei-restart.sh
+    rm -f /etc/letsencrypt/renewal-hooks/deploy/xvei-restart.sh           /etc/letsencrypt/renewal-hooks/pre/xvei-free-port80.sh           /etc/letsencrypt/renewal-hooks/post/xvei-free-port80.sh
 }
 
 # called by certbot after a successful renewal (see xvei.sh `_renew-hook`)

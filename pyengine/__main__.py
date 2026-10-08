@@ -200,6 +200,12 @@ def cmd_list_inbounds(_a) -> int:
     return 0
 
 
+def cmd_ports(_a) -> int:
+    for p in st.public_ports(_load()):
+        print(p)
+    return 0
+
+
 def cmd_summary(_a) -> int:
     data = _load()
     r = data["routing"]
@@ -285,6 +291,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("needs").set_defaults(fn=cmd_needs)
     sub.add_parser("list-inbounds").set_defaults(fn=cmd_list_inbounds)
     sub.add_parser("summary").set_defaults(fn=cmd_summary)
+    sub.add_parser("ports").set_defaults(fn=cmd_ports)
     sub.add_parser("wizard").set_defaults(fn=cmd_wizard)
 
     sm = sub.add_parser("set-meta")
