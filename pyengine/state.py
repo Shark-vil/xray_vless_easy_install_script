@@ -37,6 +37,8 @@ def blank_state() -> dict:
         "routing": {"mode": "direct", "template": "none", "country_exit": None, "tunnel": None},
         "site": {"type": "auth", "proxy_url": ""},
         "outbounds": {"warp": False, "tor": False},
+        # [{"tag", "name", "link", "outbound": <xray outbound without tag>}]
+        "custom_outbounds": [],
         "inbounds": [],
         "rules": {b: [] for b in RULE_BUCKETS},
     }
@@ -86,6 +88,9 @@ def _migrate(data: dict) -> dict:
         data["rules"].setdefault(b, [])
     data["outbounds"].setdefault("warp", False)
     data["outbounds"].setdefault("tor", False)
+    data.setdefault("custom_outbounds", [])
+    for c in data["custom_outbounds"]:
+        data["rules"].setdefault(c["tag"], [])
     data.setdefault("site", {"type": "auth", "proxy_url": ""})
     data["site"].setdefault("type", "auth")
     data["site"].setdefault("proxy_url", "")
@@ -110,6 +115,27 @@ def get_type(data: dict, itype: str) -> dict | None:
         if ib.get("type") == itype:
             return ib
     return None
+
+
+def custom_outbound(data: dict, tag: str) -> dict | None:
+    for c in data.get("custom_outbounds", []):
+        if c["tag"] == tag:
+            return c
+    return None
+
+
+def custom_tags(data: dict) -> list[str]:
+    return [c["tag"] for c in data.get("custom_outbounds", [])]
+
+
+def rule_buckets(data: dict) -> list[str]:
+    """Built-in buckets plus one per custom outbound (named by its tag)."""
+    return list(RULE_BUCKETS) + custom_tags(data)
+
+
+def tunnel_names(data: dict) -> list[str]:
+    """What may carry the template's tunnel / in-country exit traffic."""
+    return ["warp", "tor"] + custom_tags(data)
 
 
 def proxied_inbound_tags(data: dict) -> list[str]:

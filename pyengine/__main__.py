@@ -15,6 +15,7 @@ import sys
 import editor
 import hy2conf
 import links
+import proxylinks
 import sites
 import state as st
 import util
@@ -124,12 +125,24 @@ def cmd_remove_inbound(a) -> int:
 
 def cmd_add_outbound(a) -> int:
     data = _load()
-    return _finish(editor.set_outbound(data, a.name, True), data)
+    if a.tag and len(a.items) > 1:
+        util.die("--tag can only be used with a single link")
+    changed = False
+    for item in a.items:
+        if "://" in item:
+            changed |= editor.add_custom_outbound(data, item, a.tag)
+        elif item in ("warp", "tor"):
+            changed |= editor.set_outbound(data, item, True)
+        else:
+            util.die(f"{item!r} is neither warp, tor nor a share link")
+    return _finish(changed, data)
 
 
 def cmd_remove_outbound(a) -> int:
     data = _load()
-    return _finish(editor.set_outbound(data, a.name, False), data)
+    if a.name in ("warp", "tor"):
+        return _finish(editor.set_outbound(data, a.name, False), data)
+    return _finish(editor.remove_custom_outbound(data, a.name), data)
 
 
 def cmd_rule(a) -> int:
@@ -216,6 +229,9 @@ def cmd_summary(_a) -> int:
         detail = f"in-country -> {r.get('country_exit')}, rest {detail}"
     print(f"template    : {r.get('template')} / {detail}")
     print(f"outbounds   : warp={data['outbounds']['warp']} tor={data['outbounds']['tor']}")
+    for c in data["custom_outbounds"]:
+        name = f"  ({c['name']})" if c.get("name") else ""
+        print(f"  - {c['tag']}: {proxylinks.describe(c['outbound'])}{name}")
     print("inbounds    :")
     for ib in data["inbounds"]:
         print(f"  - {ib['tag']} ({ib['type']})")
@@ -314,25 +330,27 @@ def build_parser() -> argparse.ArgumentParser:
     ri.set_defaults(fn=cmd_remove_inbound)
 
     ao = sub.add_parser("add-outbound")
-    ao.add_argument("name", choices=["warp", "tor"])
+    ao.add_argument("items", nargs="+", metavar="warp|tor|LINK",
+                    help="warp, tor, or share links (vless:// socks5:// http://)")
+    ao.add_argument("--tag", default=None, help="tag for a single added link")
     ao.set_defaults(fn=cmd_add_outbound)
 
     ro = sub.add_parser("remove-outbound")
-    ro.add_argument("name", choices=["warp", "tor"])
+    ro.add_argument("name", metavar="warp|tor|TAG")
     ro.set_defaults(fn=cmd_remove_outbound)
 
     ru = sub.add_parser("rule")
     ru.add_argument("op", choices=["add", "remove", "list"])
-    ru.add_argument("bucket", choices=list(st.RULE_BUCKETS))
+    ru.add_argument("bucket", metavar="block|direct|warp|tor|TAG")
     ru.add_argument("match", nargs="*")
     ru.set_defaults(fn=cmd_rule)
 
     tp = sub.add_parser("template")
     tp.add_argument("template", choices=list(st.TEMPLATES))
-    tp.add_argument("--exit", choices=["warp", "tor", "block"], default=None,
+    tp.add_argument("--exit", default=None, metavar="warp|tor|block|TAG",
                     help="exit for in-country traffic (russia|iran|china templates only, "
                          "required -- never direct)")
-    tp.add_argument("--tunnel", choices=["warp", "tor"], default=None,
+    tp.add_argument("--tunnel", default=None, metavar="warp|tor|TAG",
                     help="tunnel for the rest of the traffic; required for 'popular'")
     tp.add_argument("--direct", action="store_true",
                     help="send the rest of the traffic direct (russia|iran|china|none only)")

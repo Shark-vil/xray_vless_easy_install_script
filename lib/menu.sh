@@ -48,8 +48,8 @@ main_menu() {
         echo
         echo "== XVEI =="
         echo " 1) Inbounds        (add / remove / list)"
-        echo " 2) Outbounds       (WARP / TOR)"
-        echo " 3) Routing rules   (block / tunnel warp / tunnel tor / direct)"
+        echo " 2) Outbounds       (WARP / TOR / share links)"
+        echo " 3) Routing rules   (block / direct / warp / tor / added outbounds)"
         echo " 4) Routing template (country / popular direct) & exit mode"
         echo " 5) Camouflage site (auth / static preset / reverse-proxy)"
         echo " 6) Show links / QR"

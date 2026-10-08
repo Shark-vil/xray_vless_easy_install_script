@@ -30,8 +30,53 @@ XVEI ставит и настраивает [Xray-core](https://github.com/XTLS/
 | `hysteria2` | Hysteria2 на `:443/udp`; **весь его трафик уходит в локальный SOCKS5-inbound Xray**, поэтому маршрутизацию делает Xray |
 
 ### Outbounds / туннели
-`direct`, `block` и опционально **WARP** (Cloudflare, docker) или **TOR** —
-второй прыжок, скрывающий IP сервера.
+`direct`, `block`, опционально **WARP** (Cloudflare, docker) или **TOR** —
+второй прыжок, скрывающий IP сервера, и **свои outbounds из share-ссылок**:
+
+* `vless://` — транспорты tcp / ws / grpc / xhttp / httpupgrade, security none / tls / reality;
+* `socks://`, `socks5://` — с `user:pass` или без (в том числе base64-формат v2rayN);
+* `http://`, `https://` — с `user:pass` или без.
+
+Не поддерживаются: `hysteria2://`; ссылки с `allowInsecure=1` (в актуальном
+Xray эта опция удалена).
+
+Добавленный outbound получает тег (`vless1`, `socks1`, … или `--tag`). Тег
+используется как группа правил, как туннель шаблона (`--tunnel <тег>`) и как
+выход для внутристранового трафика (`--exit <тег>`). Часть ссылки после `#`
+показывается только как подпись.
+
+Добавить outbound (одинарные кавычки обязательны: в ссылке есть `&`):
+
+```bash
+xvei add-outbound 'vless://UUID@example.com:443?security=reality&sni=example.com&pbk=KEY&sid=ID&type=tcp&flow=xtls-rprx-vision' --tag fi
+```
+
+Добавить несколько сразу:
+
+```bash
+xvei add-outbound 'socks5://user:pass@203.0.113.30:1080' 'http://user:pass@203.0.113.40:8080'
+```
+
+Пустить через него трафик OpenAI:
+
+```bash
+xvei rule add fi geosite:openai
+```
+
+Пустить через него весь трафик:
+
+```bash
+xvei template none --tunnel fi
+```
+
+Удалить:
+
+```bash
+xvei remove-outbound fi
+```
+
+Outbound, который используется как туннель или выход шаблона, нельзя удалить,
+пока шаблон не переключён. Меню: `xvei` → `2) Outbounds` → `Add from share link`.
 
 ### Шаблоны маршрутизации
 Выбираются при установке (потом меняются через `xvei template`). Это правила
@@ -41,20 +86,20 @@ XVEI ставит и настраивает [Xray-core](https://github.com/XTLS/
   Внутристрановые адреса (`geoip:<cc>` + локальные категории `geosite`)
   **никогда** не идут напрямую с сервера — прямой выход VPS в сети РФ/Ирана/
   Китая палит его реальный IP перед этой сетью и рискует довести до блокировки.
-  Вместо этого такой трафик обязателен `--exit warp|tor|block`:
-  * `warp` / `tor` — уходит вторым прыжком, IP сервера не светится;
+  Вместо этого такой трафик обязателен `--exit warp|tor|block|<тег>`:
+  * `warp` / `tor` / добавленный outbound — уходит вторым прыжком, IP сервера не светится;
   * `block` — просто блокируется.
   Остальной (не внутристрановой) трафик идёт по обычному режиму выхода:
   * `--direct` — напрямую наружу;
-  * `--tunnel warp|tor` — через туннель.
+  * `--tunnel warp|tor|<тег>` — через туннель.
 * **Шаблон «Популярное напрямую»** — `popular`.
   Общемировые сервисы (`geosite:youtube`, `instagram`, `google`, `telegram`,
   `netflix`, `github` и т.д. — теги, которые есть практически в любой сборке
   geosite.dat) идут напрямую для скорости; весь остальной трафик обязателен
-  `--tunnel warp|tor`.
+  `--tunnel warp|tor|<тег>`.
 
 ### Редактируемые группы правил
-`block`, `direct`, `warp`, `tor` — добавляйте/удаляйте матчеры
+`block`, `direct`, `warp`, `tor` и по одной на каждый добавленный outbound (его тег) — добавляйте/удаляйте матчеры
 (`geosite:…`, `geoip:…`, `domain:…`, `1.2.3.0/24`, `regexp:…`) на лету.
 
 ### Сайт-прикрытие
@@ -169,12 +214,12 @@ xvei apply               пересобрать + проверить + пере�
 
 xvei add-inbound  <тип> [--port N] [--dest SNI] [--method M]
 xvei remove-inbound <tag>
-xvei add-outbound   <warp|tor>
-xvei remove-outbound <warp|tor>
-xvei rule <add|remove|list> <block|warp|tor|direct> [матчер ...]
-xvei template <russia|iran|china> --exit <warp|tor|block> [--tunnel <warp|tor> | --direct]
-xvei template popular --tunnel <warp|tor>
-xvei template none [--tunnel <warp|tor> | --direct]
+xvei add-outbound   <warp|tor|LINK ...> [--tag T]
+xvei remove-outbound <warp|tor|TAG>
+xvei rule <add|remove|list> <block|direct|warp|tor|TAG> [матчер ...]
+xvei template <russia|iran|china> --exit <warp|tor|block|TAG> [--tunnel <warp|tor|TAG> | --direct]
+xvei template popular --tunnel <warp|tor|TAG>
+xvei template none [--tunnel <warp|tor|TAG> | --direct]
 xvei site [list | auth | blank | 404 | <заготовка> | proxy <url|preset>]
 
 xvei links [tag]         вывести клиентские ссылки
