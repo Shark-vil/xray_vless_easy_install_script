@@ -198,6 +198,35 @@ bash xvei.sh install
 Команда `xvei` указывает на папку клона. Обновление — через `git pull`;
 `xvei self-update` в этом режиме недоступен.
 
+### Сервер с уже установленным Xray
+
+Если Xray уже установлен и есть `/usr/local/etc/xray/config.json`, но xvei
+никогда не настраивался, `xvei install` **принимает существующую настройку**:
+ничего не устанавливается (кроме Python, если его нет), не перезаписывается и
+не перезапускается. Конфиг читается как JSON5 (комментарии, висячие запятые) и
+сохраняется как основа состояния xvei.
+
+Дальше правки через xvei накладываются на этот конфиг:
+
+* существующие inbounds, outbounds, правила и все остальные секции (`log`,
+  `dns`, `api`, `stats`, `policy`, …) не меняются;
+* первый существующий outbound остаётся первым и остаётся маршрутом по
+  умолчанию;
+* правила и шаблоны xvei ставятся перед существующими правилами;
+* правило «всё остальное → …» не добавляется, пока режим выхода не выбран
+  явно (`xvei template none --keep` возвращает исходное поведение);
+* tor, контейнер WARP, Hysteria2 и nginx останавливаются или перенастраиваются,
+  только если их поднял сам xvei.
+
+Перед первой записью оригинал сохраняется как `config.json.xvei-orig` (вместе с
+комментариями; в пересобранном файле их нет). Если `config.json` правили
+вручную после записи xvei, xvei спросит перед перезаписью. `xvei remove`
+удаляет только добавленное xvei и предлагает вернуть оригинал.
+
+Не принимаются (ничего не меняется, выводится причина): Xray под управлением
+панели (x-ui / 3x-ui), `xray.service`, который читает конфиг из другого пути
+или использует `-confdir`.
+
 ### Как работает однострочник
 
 `bash <(curl …)` скачивает только `xvei.sh`. Скрипт скачивает весь репозиторий
@@ -225,12 +254,13 @@ xvei remove-outbound <warp|tor|TAG>
 xvei rule <add|remove|list> <block|direct|warp|tor|TAG> [матчер ...]
 xvei template <russia|iran|china> --exit <warp|tor|block|TAG> [--tunnel <warp|tor|TAG> | --direct]
 xvei template popular --tunnel <warp|tor|TAG>
-xvei template none [--tunnel <warp|tor|TAG> | --direct]
+xvei template none [--tunnel <warp|tor|TAG> | --direct | --keep]
 xvei site [list | auth | blank | 404 | <заготовка> | proxy <url|preset>]
 
 xvei links [tag]         вывести клиентские ссылки
 xvei qr <tag>            QR-код для одного inbound
 xvei status              сервисы и активный шаблон
+xvei show-config [файл]  вывести config.json в читаемом виде (JSON5, комментарии сохраняются)
 xvei firewall [status | open | setup]   см. раздел «Файрвол» ниже
 xvei set-meta [--domain D --email E ...]
 xvei check-updates       проверить обновления xvei / xray / hysteria2 / geo-данных
@@ -265,7 +295,7 @@ xvei site proxy gnu                        # реверс-прокси www.gnu.o
 
 ## Обновления
 
-`xvei check-updates` (в меню: `9) Check for updates`) показывает установленную
+`xvei check-updates` (в меню: `10) Check for updates`) показывает установленную
 и последнюю версию каждого компонента и предлагает установить доступные
 обновления:
 
@@ -300,7 +330,7 @@ xvei **никогда сам не включает, не сбрасывает и
   «да» ничего не применяется. На Debian/Ubuntu — ufw (старые правила
   сохраняются, если не выбрать `ufw reset`), на CentOS — firewalld.
 
-То же самое есть в меню: `xvei` → `8) Firewall`.
+То же самое есть в меню: `xvei` → `9) Firewall`.
 
 ## Где что лежит
 
@@ -308,6 +338,7 @@ xvei **никогда сам не включает, не сбрасывает и
 |---|---|
 | `/usr/local/etc/xray/xvei-state.json` | источник правды (root, `0600`) |
 | `/usr/local/etc/xray/config.json` | сгенерированный конфиг Xray (`.bak` сохраняется) |
+| `/usr/local/etc/xray/config.json.xvei-orig` | принятая настройка: конфиг до xvei |
 | `/etc/hysteria/config.yaml` | сгенерированный конфиг Hysteria2 |
 | `/etc/nginx/sites-enabled/xvei.conf` (Debian/Ubuntu) или `/etc/nginx/conf.d/xvei.conf` (CentOS), `/var/www/xvei-site` | vhost фолбэка + сайт-прикрытие |
 | `~/xray_eis/<tag>.link` | клиентская ссылка на каждый inbound |

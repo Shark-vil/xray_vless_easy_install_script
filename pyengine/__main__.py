@@ -8,12 +8,15 @@ Exit codes for mutating subcommands:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import sys
 
 import editor
 import hy2conf
+import json5lite
 import links
 import proxylinks
 import sites
@@ -108,6 +111,8 @@ def cmd_set_meta(a) -> int:
         data["cert"]["fullchain"] = a.cert_fullchain
     if a.cert_privkey is not None:
         data["cert"]["privkey"] = a.cert_privkey
+    if a.applied_sha is not None:
+        data["applied_sha256"] = a.applied_sha
     return _finish(json.dumps(data, sort_keys=True) != before, data)
 
 
@@ -153,14 +158,20 @@ def cmd_rule(a) -> int:
 
 def cmd_template(a) -> int:
     data = _load()
+    if a.tunnel and not a.direct:
+        mode = "tunnel"
+    elif a.keep:
+        mode = "keep"
+    elif a.direct:
+        mode = "direct"
+    else:  # adopted: leave the current exit mode; otherwise direct as before
+        mode = None if data.get("adopted") else "direct"
     if a.template in st.COUNTRY_TEMPLATES:
-        mode = "tunnel" if (a.tunnel and not a.direct) else "direct"
         changed = editor.set_template(data, a.template, country_exit=a.exit,
                                        mode=mode, tunnel=a.tunnel)
     elif a.template == "popular":
         changed = editor.set_template(data, a.template, tunnel=a.tunnel)
     else:
-        mode = "tunnel" if (a.tunnel and not a.direct) else "direct"
         changed = editor.set_template(data, a.template, mode=mode, tunnel=a.tunnel)
     return _finish(changed, data)
 
@@ -213,15 +224,81 @@ def cmd_list_inbounds(_a) -> int:
     return 0
 
 
+def cmd_adopt(a) -> int:
+    """Take over an existing Xray config without changing anything: it becomes
+    the "base" that every later build merges xvei's own parts into."""
+    path = st.state_path()
+    if os.path.exists(path):
+        util.die(f"xvei state already exists ({path})")
+    try:
+        with open(a.config, "rb") as fh:
+            raw = fh.read()
+        base = json5lite.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeDecodeError) as e:
+        util.die(f"cannot read {a.config}: {e}")
+    except json5lite.Json5Error as e:
+        util.die(f"{a.config}: {e}")
+    if not isinstance(base, dict):
+        util.die(f"{a.config}: top level is not an object")
+    data = st.blank_state()
+    data["adopted"] = True
+    data["base"] = base
+    data["routing"]["mode"] = "keep"
+    data["applied_sha256"] = hashlib.sha256(raw).hexdigest()
+    # reuse an existing Let's Encrypt certificate for TLS inbounds added later
+    for ib in base.get("inbounds") or []:
+        tls = ((ib.get("streamSettings") or {}).get("tlsSettings") or {})
+        for c in tls.get("certificates") or []:
+            m = re.match(r"/etc/letsencrypt/live/([^/]+)/", str(c.get("certificateFile", "")))
+            if m and not data["domain"]:
+                data["domain"] = m.group(1)
+                data["cert"] = {"mode": "letsencrypt",
+                                "fullchain": f"/etc/letsencrypt/live/{m.group(1)}/fullchain.pem",
+                                "privkey": f"/etc/letsencrypt/live/{m.group(1)}/privkey.pem"}
+    st.save(data)
+    util.ok(f"adopted {a.config} ({len(base.get('inbounds') or [])} inbounds, "
+            f"{len(base.get('outbounds') or [])} outbounds, "
+            f"{len((base.get('routing') or {}).get('rules') or [])} routing rules)")
+    return 0
+
+
+def cmd_pretty(a) -> int:
+    try:
+        with open(a.file, encoding="utf-8") as fh:
+            text = fh.read()
+        print(json5lite.pretty(text, color=a.color), end="")
+    except OSError as e:
+        util.die(f"cannot read {a.file}: {e}")
+    except json5lite.Json5Error as e:
+        util.die(f"{a.file}: {e}")
+    return 0
+
+
 def cmd_ports(_a) -> int:
     for p in st.public_ports(_load()):
         print(p)
     return 0
 
 
+def _describe_inbound(ib: dict) -> str:
+    ss = ib.get("streamSettings") or {}
+    net = f" {ss.get('network', 'tcp')}/{ss.get('security', 'none')}" if ss else ""
+    where = ib.get("port") or ib.get("listen") or "?"
+    return f"{ib.get('tag') or '(no tag)'} ({ib.get('protocol', '?')} :{where}{net})"
+
+
 def cmd_summary(_a) -> int:
     data = _load()
     r = data["routing"]
+    if data.get("adopted"):
+        base = data.get("base") or {}
+        print("mode        : adopted existing Xray config (kept as is, xvei parts merged in)")
+        print("existing    :")
+        for ib in base.get("inbounds") or []:
+            print(f"  - inbound  {_describe_inbound(ib)}")
+        for o in base.get("outbounds") or []:
+            print(f"  - outbound {o.get('tag') or '(no tag)'} ({o.get('protocol', '?')})")
+        print(f"  - {len((base.get('routing') or {}).get('rules') or [])} routing rules")
     print(f"domain      : {data.get('domain') or '(none)'}")
     print(f"cert        : {data['cert']['mode']}")
     detail = f"exit={r.get('mode')}" + (f" via {r.get('tunnel')}" if r.get('tunnel') else "")
@@ -308,10 +385,20 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("list-inbounds").set_defaults(fn=cmd_list_inbounds)
     sub.add_parser("summary").set_defaults(fn=cmd_summary)
     sub.add_parser("ports").set_defaults(fn=cmd_ports)
+
+    ad = sub.add_parser("adopt")
+    ad.add_argument("--config", default=XRAY_CONFIG_DEFAULT)
+    ad.set_defaults(fn=cmd_adopt)
+
+    pp = sub.add_parser("pretty")
+    pp.add_argument("file", nargs="?", default=XRAY_CONFIG_DEFAULT)
+    pp.add_argument("--color", action="store_true")
+    pp.set_defaults(fn=cmd_pretty)
     sub.add_parser("wizard").set_defaults(fn=cmd_wizard)
 
     sm = sub.add_parser("set-meta")
-    for opt in ("domain", "email", "server-ip", "cert-mode", "cert-fullchain", "cert-privkey"):
+    for opt in ("domain", "email", "server-ip", "cert-mode", "cert-fullchain", "cert-privkey",
+                "applied-sha"):
         sm.add_argument("--" + opt, dest=opt.replace("-", "_"), default=None)
     sm.set_defaults(fn=cmd_set_meta)
 
@@ -354,6 +441,8 @@ def build_parser() -> argparse.ArgumentParser:
                     help="tunnel for the rest of the traffic; required for 'popular'")
     tp.add_argument("--direct", action="store_true",
                     help="send the rest of the traffic direct (russia|iran|china|none only)")
+    tp.add_argument("--keep", action="store_true",
+                    help="adopted setups: no catch-all, the existing default stays")
     tp.set_defaults(fn=cmd_template)
 
     mn = sub.add_parser("menu")

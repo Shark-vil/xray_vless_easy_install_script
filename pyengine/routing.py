@@ -87,14 +87,21 @@ def _rule(tag: str, items: list[str], *, extra: dict | None = None) -> list[dict
 
 
 def build(data: dict) -> dict:
+    """Routing section. For an adopted setup the existing routing is kept: its
+    rules run after xvei's own rules and template, its other keys (domain
+    strategy, balancers...) stay as they are, and no guardrails or catch-all
+    are added unless an exit mode was chosen explicitly (mode != "keep")."""
     routing = data["routing"]
+    adopted = bool(data.get("adopted"))
+    base = ((data.get("base") or {}).get("routing") or {}) if adopted else {}
     rules: list[dict] = []
 
     # 1. hard guardrails
-    rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK, "protocol": ["bittorrent"]})
-    rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK,
-                  "ip": ["geoip:private"], "network": "tcp,udp"})
-    rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK, "port": "135,137,138,139"})
+    if not adopted:
+        rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK, "protocol": ["bittorrent"]})
+        rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK,
+                      "ip": ["geoip:private"], "network": "tcp,udp"})
+        rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK, "port": "135,137,138,139"})
 
     # 2. user edits (highest priority after guardrails)
     user = data.get("rules", {})
@@ -124,6 +131,9 @@ def build(data: dict) -> dict:
         rules.append({"type": "field", "outboundTag": ob.TAG_DIRECT,
                       "domain": list(POPULAR_DOMAINS)})
 
+    # adopted: the existing rules, unchanged and in their original order
+    rules += [dict(x) for x in base.get("rules") or []]
+
     # 4. exit mode: everything else
     if template == "popular":
         # Everything outside the popular list goes through a tunnel.
@@ -132,7 +142,14 @@ def build(data: dict) -> dict:
     elif routing.get("mode") == "tunnel" and _exit_tag(data, routing.get("tunnel")):
         rules.append({"type": "field", "outboundTag": _exit_tag(data, routing["tunnel"]),
                       "network": "tcp,udp"})
+    elif adopted and routing.get("mode") == "keep":
+        pass  # the adopted config's own default (its first outbound) stays
     else:
         rules.append({"type": "field", "outboundTag": ob.TAG_DIRECT, "network": "tcp,udp"})
 
+    if adopted:
+        out = dict(base)
+        if rules or "rules" in base:
+            out["rules"] = rules
+        return out
     return {"domainStrategy": "IPIfNonMatch", "rules": rules}

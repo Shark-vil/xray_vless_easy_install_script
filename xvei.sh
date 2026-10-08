@@ -58,7 +58,7 @@ fi
 
 # --- load modules ------------------------------------------------------
 # shellcheck source=lib/common.sh
-for m in common deps xray nginx certs hysteria2 warp tor firewall update apply menu; do
+for m in common deps adopt xray nginx certs hysteria2 warp tor firewall update apply menu; do
     # shellcheck disable=SC1090
     source "$XVEI_ROOT/lib/$m.sh"
 done
@@ -66,6 +66,14 @@ done
 # --- high level flows ------------------------------------------------
 wizard_install() {
     require_root
+    if ! state_exists && xray_installed; then
+        # an Xray that xvei did not set up: take it over as is, change nothing
+        adopt_preflight
+        if [ -f "$XRAY_CONFIG" ]; then
+            adopt_existing
+            return
+        fi
+    fi
     os_check_supported
     # bootstrap already links it; a run from a git clone needs it too
     [ -e /usr/local/bin/xvei ] || ln -sf "$XVEI_ROOT/xvei.sh" /usr/local/bin/xvei
@@ -85,6 +93,10 @@ wizard_install() {
 
 xvei_remove() {
     require_root
+    if state_exists && is_adopted; then
+        remove_adopted
+        return
+    fi
     log "stopping services"
     systemctl disable --now xray.service 2>/dev/null || true
     hy2_remove_pkg
@@ -93,7 +105,7 @@ xvei_remove() {
     xray_remove_pkg
     nginx_teardown
     cert_hook_teardown
-    rm -rf "$XRAY_DIR" "$HY2_DIR" "$CLIENT_DIR"
+    rm -rf "$XRAY_DIR" "$HY2_DIR" "$CLIENT_DIR" "$XVEI_MARKERS"
     ok "xvei removed"
 }
 
@@ -136,13 +148,15 @@ xvei - Xray + Hysteria2 installer / live editor
   xvei rule <add|remove|list> <block|direct|warp|tor|TAG> [matcher ...]
   xvei template <russia|iran|china> --exit <warp|tor|block|TAG> [--tunnel <warp|tor|TAG> | --direct]
   xvei template popular --tunnel <warp|tor|TAG>
-  xvei template none [--tunnel <warp|tor|TAG> | --direct]
+  xvei template none [--tunnel <warp|tor|TAG> | --direct | --keep]
+       --keep (adopted setups): no catch-all rule, the existing default stays
   xvei site [list | auth | blank | 404 | <preset> | proxy <url|preset>]
        presets: nebula critters game2048 snake notes
 
   xvei links [tag]         print client share links
   xvei qr <tag>            print a QR code for one inbound
   xvei status              services + active template
+  xvei show-config [file]  print config.json (JSON5, comments kept) readably
   xvei firewall [status | open | setup]
        status: show the firewall and which needed ports are open
        open:   add allow rules for the ports xvei needs (active ufw/firewalld)
@@ -177,6 +191,7 @@ case "$cmd" in
                          [ -f "$f" ] || die "no link file: $f"
                          qrencode -t ANSIUTF8 "$(cat "$f")" ;;
     status)              menu_status ;;
+    show-config)         show_config "${1:-}" ;;
     firewall)            case "${1:-status}" in
                              status) fw_status ;;
                              open)   fw_open ;;

@@ -41,6 +41,12 @@ def blank_state() -> dict:
         "custom_outbounds": [],
         "inbounds": [],
         "rules": {b: [] for b in RULE_BUCKETS},
+        # An Xray setup that existed before xvei: "base" is its config, kept
+        # verbatim and merged with what xvei manages (see xrayconf.py).
+        "adopted": False,
+        "base": None,
+        # sha256 of config.json as xvei last wrote it (or as it was adopted)
+        "applied_sha256": "",
     }
 
 
@@ -136,6 +142,28 @@ def rule_buckets(data: dict) -> list[str]:
 def tunnel_names(data: dict) -> list[str]:
     """What may carry the template's tunnel / in-country exit traffic."""
     return ["warp", "tor"] + custom_tags(data)
+
+
+def base_inbounds(data: dict) -> list[dict]:
+    return list((data.get("base") or {}).get("inbounds") or []) if data.get("adopted") else []
+
+
+def base_outbounds(data: dict) -> list[dict]:
+    return list((data.get("base") or {}).get("outbounds") or []) if data.get("adopted") else []
+
+
+def base_tags(data: dict) -> set[str]:
+    """Inbound + outbound tags of the adopted config."""
+    return {o.get("tag") for o in base_inbounds(data) + base_outbounds(data) if o.get("tag")}
+
+
+def base_ports(data: dict) -> set[int]:
+    out: set[int] = set()
+    for ib in base_inbounds(data):
+        p = ib.get("port")
+        if isinstance(p, int) or (isinstance(p, str) and p.isdigit()):
+            out.add(int(p))
+    return out
 
 
 def proxied_inbound_tags(data: dict) -> list[str]:

@@ -19,10 +19,12 @@ hy2_install() {
 
 hy2_remove_pkg() {
     hy2_installed || return 0
+    xvei_owns hysteria2 || return 0
     systemctl disable --now "$HY2_SERVICE" 2>/dev/null || true
     log "removing hysteria2"
     bash -c "$(curl -fsSL "$HY2_INSTALL_URL")" hysteria --remove || true
     rm -rf "$HY2_DIR"
+    unmark_managed hysteria2
 }
 
 # Copy the active certificate where the hysteria-server user can read it.
@@ -51,8 +53,9 @@ hy2_sync_cert() {
 hy2_apply() {
     local newcfg="$1"
     if [ -z "$newcfg" ] || [ ! -s "$newcfg" ]; then
-        # HY2 no longer configured: stop the service if present
-        if hy2_installed; then
+        # HY2 no longer configured: stop the service if xvei runs it
+        if hy2_installed && xvei_owns hysteria2 \
+            && systemctl is-enabled --quiet "$HY2_SERVICE" 2>/dev/null; then
             systemctl disable --now "$HY2_SERVICE" 2>/dev/null || true
             ok "hysteria2 stopped (no longer in config)"
         fi
@@ -62,6 +65,7 @@ hy2_apply() {
     mkdir -p "$HY2_DIR"
     hy2_sync_cert
     install -m 644 "$newcfg" "$HY2_CONFIG"
+    mark_managed hysteria2
     systemctl enable "$HY2_SERVICE" >/dev/null 2>&1 || true
     systemctl restart "$HY2_SERVICE"
     if ! check_service "$HY2_SERVICE"; then

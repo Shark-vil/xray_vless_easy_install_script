@@ -39,6 +39,20 @@ xray_test() {
     return 1
 }
 
+# show_config [file]: the config (JSON5: comments, trailing commas) re-indented
+# and coloured for reading; the file itself is not touched.
+show_config() {
+    local f="${1:-$XRAY_CONFIG}"
+    [ -f "$f" ] || { err "no such file: $f"; return 1; }
+    if [ -t 1 ] && command -v less >/dev/null 2>&1; then
+        py pretty "$f" --color | less -RFX
+    elif [ -t 1 ]; then
+        py pretty "$f" --color
+    else
+        py pretty "$f"
+    fi
+}
+
 xray_restart() {
     systemctl restart xray.service
     systemctl enable xray.service >/dev/null 2>&1 || true

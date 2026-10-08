@@ -6,6 +6,19 @@ apply_all() {
     require_root
     state_exists || die "not installed yet (no $XVEI_STATE); run: xvei install"
 
+    # config.json edited by hand since xvei last wrote it (or adopted it)?
+    # Those edits would be lost - ask first.
+    local want; want="$(state_get applied_sha256)"
+    if [ -n "$want" ] && [ -f "$XRAY_CONFIG" ] \
+        && [ "$(sha256sum "$XRAY_CONFIG" | awk '{print $1}')" != "$want" ]; then
+        warn "$XRAY_CONFIG was changed outside xvei since xvei last wrote it;"
+        warn "applying replaces it (the current file is kept as $XRAY_CONFIG.bak)"
+        if ! { have_tty && confirm "Overwrite it?" n; }; then
+            err "not applied (the xvei state is saved; run 'xvei apply' to apply it)"
+            return 1
+        fi
+    fi
+
     local needs; needs="$(py needs)"
     log "state requires: ${needs:-nothing extra}"
 
@@ -41,7 +54,12 @@ apply_all() {
         return 1
     fi
 
-    # 4. swap in + restart
+    # 4. swap in + restart. An adopted config is saved once, as it was before
+    #    xvei ever wrote it (comments included - the rebuilt one has none).
+    if is_adopted && [ -f "$XRAY_CONFIG" ] && [ ! -e "$XRAY_CONFIG.xvei-orig" ]; then
+        cp -p "$XRAY_CONFIG" "$XRAY_CONFIG.xvei-orig"
+        log "original config saved as $XRAY_CONFIG.xvei-orig"
+    fi
     [ -f "$XRAY_CONFIG" ] && cp -f "$XRAY_CONFIG" "$XRAY_CONFIG.bak"
     mv "$xnew" "$XRAY_CONFIG"
     chmod 600 "$XRAY_CONFIG"
@@ -52,6 +70,7 @@ apply_all() {
         xray_restart
         return 1
     fi
+    py set-meta --applied-sha "$(sha256sum "$XRAY_CONFIG" | awk '{print $1}')" >/dev/null || true
 
     # 5. hysteria2 follows the same state
     if [ -s "$hnew" ]; then hy2_apply "$hnew"; else hy2_apply ""; fi

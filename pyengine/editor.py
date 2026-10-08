@@ -1,6 +1,7 @@
 """State-mutating operations. Each returns True when the state changed."""
 from __future__ import annotations
 
+import os
 import re
 
 import inbounds as ibmod
@@ -11,8 +12,12 @@ import state as st
 import util
 
 
+# lib/hysteria2.sh touches this when xvei itself set up Hysteria2
+HY2_MARKER = "/var/lib/xvei/managed/hysteria2"
+
+
 def _used_ports(data: dict) -> set[int]:
-    ports: set[int] = set()
+    ports: set[int] = st.base_ports(data)
     for ib in data["inbounds"]:
         for key in ("port", "socks_port"):
             if isinstance(ib.get(key), int):
@@ -36,8 +41,18 @@ def _ensure_domain(data: dict) -> None:
 
 def _new_inbound(data: dict, itype: str, opts: dict) -> dict:
     tag = opts.get("tag") or ibmod.default_tag(itype)
-    if st.inbound_by_tag(data, tag):
-        util.die(f"inbound tag {tag!r} already exists")
+    if st.inbound_by_tag(data, tag) or tag in st.base_tags(data):
+        util.die(f"inbound tag {tag!r} already exists (use --tag)")
+    needs_443 = itype == "vless-tls" or (
+        itype == "vless-xhttp-tls" and not st.has_type(data, "vless-tls"))
+    if needs_443 and 443 in st.base_ports(data):
+        util.die(f"{itype} needs port 443, which an existing inbound of the "
+                 "adopted config already uses")
+    if (itype == "hysteria2" and data.get("adopted")
+            and os.path.exists("/etc/hysteria/config.yaml")
+            and not os.path.exists(HY2_MARKER)):
+        util.die("Hysteria2 is already configured on this server outside xvei "
+                 "(/etc/hysteria/config.yaml); xvei will not overwrite it")
     if itype in ("vless-tls", "vless-ws", "vless-xhttp-tls"):
         _ensure_domain(data)
     ib: dict = {"type": itype, "tag": tag, "uuid": util.new_uuid(),
@@ -149,7 +164,8 @@ _RESERVED_TAGS = {"direct", "block", "warp", "tor", "warp_proxy", "tor_proxy"}
 
 def _next_tag(data: dict, proto: str) -> str:
     proto = {"shadowsocks": "ss"}.get(proto, proto)
-    taken = set(st.custom_tags(data)) | {ib["tag"] for ib in data["inbounds"]}
+    taken = (set(st.custom_tags(data)) | {ib["tag"] for ib in data["inbounds"]}
+             | st.base_tags(data))
     n = 1
     while f"{proto}{n}" in taken:
         n += 1
@@ -166,7 +182,8 @@ def add_custom_outbound(data: dict, link: str, tag: str | None = None) -> bool:
     tag = tag or _next_tag(data, ob["protocol"])
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", tag):
         util.die("tag may only contain letters, digits, '_' and '-' (max 32)")
-    if tag in _RESERVED_TAGS or st.custom_outbound(data, tag) or st.inbound_by_tag(data, tag):
+    if (tag in _RESERVED_TAGS or st.custom_outbound(data, tag)
+            or st.inbound_by_tag(data, tag) or tag in st.base_tags(data)):
         util.die(f"tag {tag!r} is already taken")
     data["custom_outbounds"].append({"tag": tag, "name": name, "link": link, "outbound": ob})
     data["rules"].setdefault(tag, [])
@@ -229,6 +246,7 @@ def set_template(data: dict, template: str, *, country_exit: str | None = None,
     before = dict(r)
 
     tunnels = st.tunnel_names(data)
+    modes = ("direct", "tunnel") + (("keep",) if data.get("adopted") else ())
 
     def need_tunnel(msg: str) -> None:
         if tunnel not in tunnels:
@@ -244,8 +262,8 @@ def set_template(data: dict, template: str, *, country_exit: str | None = None,
         if country_exit in ("warp", "tor"):
             data["outbounds"][country_exit] = True
         mode = mode or r.get("mode") or "direct"
-        if mode not in ("direct", "tunnel"):
-            util.die("mode must be 'direct' or 'tunnel'")
+        if mode not in modes:
+            util.die(f"mode must be one of: {', '.join(modes)}")
         if mode == "tunnel":
             need_tunnel("tunnel mode needs")
         r["template"] = template
@@ -262,9 +280,9 @@ def set_template(data: dict, template: str, *, country_exit: str | None = None,
         r["tunnel"] = tunnel
 
     else:  # none
-        mode = mode or "direct"
-        if mode not in ("direct", "tunnel"):
-            util.die("mode must be 'direct' or 'tunnel'")
+        mode = mode or ("keep" if data.get("adopted") else "direct")
+        if mode not in modes:
+            util.die(f"mode must be one of: {', '.join(modes)}")
         if mode == "tunnel":
             need_tunnel("tunnel mode needs")
         r["template"] = "none"
@@ -438,6 +456,12 @@ def menu_rules(data: dict) -> bool:
             return True
 
 
+def _mode_options(data: dict, opts: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    if data.get("adopted"):
+        return [("keep", "Keep the existing config's own default")] + opts
+    return opts
+
+
 def menu_template(data: dict) -> bool:
     r = data["routing"]
     template = util.choose("Template", [
@@ -453,10 +477,10 @@ def menu_template(data: dict) -> bool:
             "In-country traffic exits via",
             _tunnel_options(data) + [("block", "Block outright")],
             r.get("country_exit") or "block")
-        mode = util.choose("Exit mode for everything else", [
+        mode = util.choose("Exit mode for everything else", _mode_options(data, [
             ("direct", "Direct"),
             ("tunnel", "Through a tunnel (WARP/TOR/added outbound)"),
-        ], r.get("mode") or "direct")
+        ]), r.get("mode") or "direct")
         tunnel = None
         if mode == "tunnel":
             tunnel = util.choose("Tunnel", _tunnel_options(data), r.get("tunnel") or "warp")
@@ -467,10 +491,10 @@ def menu_template(data: dict) -> bool:
                               _tunnel_options(data), r.get("tunnel") or "warp")
         return set_template(data, template, tunnel=tunnel)
 
-    mode = util.choose("Exit mode", [
+    mode = util.choose("Exit mode", _mode_options(data, [
         ("direct", "Everything direct"),
         ("tunnel", "Everything through a tunnel (WARP/TOR/added outbound)"),
-    ], r.get("mode") or "direct")
+    ]), r.get("mode") or "direct")
     tunnel = None
     if mode == "tunnel":
         tunnel = util.choose("Tunnel", _tunnel_options(data), r.get("tunnel") or "warp")

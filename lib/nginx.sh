@@ -62,7 +62,9 @@ nginx_setup() {
     ensure_bin nginx
     local site; site="$(_nginx_site_path)"
     log "writing nginx fallback vhost -> $site"
-    [ -e "$NGINX_SITE_ENABLED" ] && rm -f "$NGINX_SITE_ENABLED"
+    # the stock default site would shadow the fallback; an adopted server's
+    # nginx is left as it is
+    if ! is_adopted && [ -e "$NGINX_SITE_ENABLED" ]; then rm -f "$NGINX_SITE_ENABLED"; fi
     _nginx_deploy_site
     if ! py nginx-conf > "$site"; then
         err "failed to render nginx vhost"; return 1
@@ -79,9 +81,11 @@ nginx_setup() {
 }
 
 nginx_teardown() {
+    # nothing to undo unless xvei's vhost is there
+    [ -e /etc/nginx/sites-enabled/xvei.conf ] || [ -e /etc/nginx/conf.d/xvei.conf ] || return 0
     rm -f /etc/nginx/sites-enabled/xvei.conf /etc/nginx/conf.d/xvei.conf
     rm -rf "$WEBROOT"
-    if [ -e "$NGINX_SITE_AVAILABLE" ] && [ ! -e "$NGINX_SITE_ENABLED" ]; then
+    if ! is_adopted && [ -e "$NGINX_SITE_AVAILABLE" ] && [ ! -e "$NGINX_SITE_ENABLED" ]; then
         ln -s "$NGINX_SITE_AVAILABLE" "$NGINX_SITE_ENABLED"
     fi
     systemctl restart nginx 2>/dev/null || true
