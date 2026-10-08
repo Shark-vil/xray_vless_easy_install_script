@@ -55,7 +55,7 @@ main_menu() {
         echo " 6) Show links / QR"
         echo " 7) Status"
         echo " 8) Firewall        (optional: open ports / lockdown)"
-        echo " 9) Update geo data"
+        echo " 9) Check for updates (xvei / xray / hysteria2 / geo data)"
         echo "10) Uninstall xvei"
         echo " 0) Exit"
         local c; c="$(read_value "Choose")"
@@ -68,7 +68,7 @@ main_menu() {
             6) menu_links ;;
             7) menu_status ;;
             8) menu_firewall ;;
-            9) xray_update_geo && xray_restart && ok "geo updated" ;;
+            9) check_updates ;;
             10) confirm "Really uninstall xvei and all services?" n && { xvei_remove; return; } ;;
             0|"") return 0 ;;
             *) warn "unknown choice" ;;

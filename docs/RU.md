@@ -182,6 +182,7 @@ xvei qr <tag>            QR-код для одного inbound
 xvei status              сервисы и активный шаблон
 xvei firewall [status | open | setup]   см. раздел «Файрвол» ниже
 xvei set-meta [--domain D --email E ...]
+xvei check-updates       проверить обновления xvei / xray / hysteria2 / geo-данных
 xvei update-geo          обновить geoip/geosite (необязательно; их ставит установщик xray)
 xvei self-update         перекачать дерево скриптов
 xvei remove              полное удаление
@@ -210,6 +211,22 @@ xvei site proxy gnu                        # реверс-прокси www.gnu.o
 перезапускает `xray`, `nginx` и `hysteria2`. Pre/post-хуки
 (`renewal-hooks/{pre,post}/xvei-free-port80.sh`) останавливают nginx на время
 проверки, только если он занимает `:80`, и затем запускают его обратно.
+
+## Обновления
+
+`xvei check-updates` (в меню: `9) Check for updates`) показывает установленную
+и последнюю версию каждого компонента и предлагает установить доступные
+обновления:
+
+| компонент | установлено | сравнивается с |
+|---|---|---|
+| xvei | установленный коммит | последний коммит `master` |
+| xray | `xray version` | последний релиз [XTLS/Xray-core](https://github.com/XTLS/Xray-core/releases) |
+| hysteria2 | `hysteria version` | последний релиз [apernet/hysteria](https://github.com/apernet/hysteria/releases) |
+| geoip.dat / geosite.dat | sha256 файла | контрольные суммы последнего релиза [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat/releases) |
+
+Неустановленные компоненты пропускаются. xvei обновляется последним, после
+этого запустите `xvei` заново. В git-клоне xvei обновляется через `git pull`.
 
 ## Файрвол
 

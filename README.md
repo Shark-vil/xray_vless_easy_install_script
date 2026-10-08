@@ -181,6 +181,7 @@ xvei qr <tag>            QR code for one inbound
 xvei status              services + active template
 xvei firewall [status | open | setup]   see "Firewall" below
 xvei set-meta [--domain D --email E ...]
+xvei check-updates       check xvei / xray / hysteria2 / geo data for updates
 xvei update-geo          refresh geoip/geosite (optional; the xray installer ships them)
 xvei self-update         re-fetch the script tree
 xvei remove              uninstall everything
@@ -208,6 +209,21 @@ is installed with the certificate: after every Let's Encrypt renewal it refreshe
 the Hysteria2 cert copy and restarts `xray`, `nginx` and `hysteria2`. Pre/post
 hooks (`renewal-hooks/{pre,post}/xvei-free-port80.sh`) stop nginx for the
 renewal challenge only if it holds `:80`, then start it again.
+
+## Updates
+
+`xvei check-updates` (menu: `9) Check for updates`) prints the installed and
+latest version of each component and offers to install the available updates:
+
+| component | installed | compared with |
+|---|---|---|
+| xvei | installed commit | latest commit of `master` |
+| xray | `xray version` | latest [XTLS/Xray-core](https://github.com/XTLS/Xray-core/releases) release |
+| hysteria2 | `hysteria version` | latest [apernet/hysteria](https://github.com/apernet/hysteria/releases) release |
+| geoip.dat / geosite.dat | file sha256 | checksums of the latest [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat/releases) release |
+
+Components that are not installed are skipped. xvei is updated last; run
+`xvei` again afterwards. In a git clone xvei is updated with `git pull`.
 
 ## Firewall
 

@@ -22,17 +22,33 @@ _resolve_root() {
 XVEI_ROOT="$(_resolve_root)"
 export XVEI_ROOT
 
+# --- fetching the tree ---------------------------------------------------
+# latest commit of the branch (plain sha from the GitHub API), empty on failure
+xvei_remote_sha() {
+    curl -fsSL --max-time 10 -H 'Accept: application/vnd.github.sha' \
+        "https://api.github.com/repos/$REPO_SLUG/commits/$REPO_BRANCH" 2>/dev/null \
+        | grep -E '^[0-9a-f]{40}$'
+}
+
+# Download the tree into $INSTALL_DIR and record its commit in .commit, which
+# `xvei check-updates` compares against the branch head.
+xvei_fetch_tree() {
+    local sha; sha="$(xvei_remote_sha)"
+    mkdir -p "$INSTALL_DIR"
+    curl -fsSL "https://github.com/$REPO_SLUG/archive/${sha:-refs/heads/$REPO_BRANCH}.tar.gz" \
+        | tar -xz -C "$INSTALL_DIR" --strip-components=1 || return 1
+    if [ -n "$sha" ]; then echo "$sha" > "$INSTALL_DIR/.commit"; else rm -f "$INSTALL_DIR/.commit"; fi
+    ln -sf "$INSTALL_DIR/xvei.sh" /usr/local/bin/xvei
+    chmod +x "$INSTALL_DIR/xvei.sh"
+}
+
 # --- bootstrap: fetch the modular tree when run via curl|bash ----------
 bootstrap() {
     [ "$(id -u)" -eq 0 ] || { echo "run as root" >&2; exit 1; }
     echo "[xvei] fetching $REPO_SLUG@$REPO_BRANCH -> $INSTALL_DIR"
     command -v curl >/dev/null 2>&1 || { echo "curl required" >&2; exit 1; }
     command -v tar  >/dev/null 2>&1 || { echo "tar required"  >&2; exit 1; }
-    mkdir -p "$INSTALL_DIR"
-    curl -fsSL "https://github.com/$REPO_SLUG/archive/refs/heads/$REPO_BRANCH.tar.gz" \
-        | tar -xz -C "$INSTALL_DIR" --strip-components=1
-    ln -sf "$INSTALL_DIR/xvei.sh" /usr/local/bin/xvei
-    chmod +x "$INSTALL_DIR/xvei.sh"
+    xvei_fetch_tree || { echo "download failed" >&2; exit 1; }
     exec bash "$INSTALL_DIR/xvei.sh" "$@"
 }
 
@@ -42,7 +58,7 @@ fi
 
 # --- load modules ------------------------------------------------------
 # shellcheck source=lib/common.sh
-for m in common deps xray nginx certs hysteria2 warp tor firewall apply menu; do
+for m in common deps xray nginx certs hysteria2 warp tor firewall update apply menu; do
     # shellcheck disable=SC1090
     source "$XVEI_ROOT/lib/$m.sh"
 done
@@ -84,9 +100,7 @@ xvei_remove() {
 self_update() {
     require_root
     [ -d "$INSTALL_DIR" ] || die "not a bootstrapped install ($INSTALL_DIR missing)"
-    curl -fsSL "https://github.com/$REPO_SLUG/archive/refs/heads/$REPO_BRANCH.tar.gz" \
-        | tar -xz -C "$INSTALL_DIR" --strip-components=1
-    ln -sf "$INSTALL_DIR/xvei.sh" /usr/local/bin/xvei
+    xvei_fetch_tree || die "download failed"
     ok "updated $INSTALL_DIR"
 }
 
@@ -132,6 +146,8 @@ xvei - Xray + Hysteria2 installer / live editor
        open:   add allow rules for the ports xvei needs (active ufw/firewalld)
        setup:  opt-in "deny incoming except SSH + xvei ports" (asks first)
   xvei set-meta [--domain D --email E ...]
+  xvei check-updates       compare xvei / xray / hysteria2 / geo data with the
+                           latest releases and offer to update
   xvei update-geo          refresh geoip/geosite
   xvei self-update         re-fetch the script tree
   xvei remove              uninstall everything
@@ -165,6 +181,7 @@ case "$cmd" in
                              setup)  fw_setup ;;
                              *)      die "usage: xvei firewall [status|open|setup]" ;;
                          esac ;;
+    check-updates)       check_updates ;;
     update-geo)          require_root; xray_update_geo; xray_restart; ok "geo updated" ;;
     self-update)         self_update ;;
     remove|uninstall)    xvei_remove ;;
