@@ -148,6 +148,7 @@ _RESERVED_TAGS = {"direct", "block", "warp", "tor", "warp_proxy", "tor_proxy"}
 
 
 def _next_tag(data: dict, proto: str) -> str:
+    proto = {"shadowsocks": "ss"}.get(proto, proto)
     taken = set(st.custom_tags(data)) | {ib["tag"] for ib in data["inbounds"]}
     n = 1
     while f"{proto}{n}" in taken:
@@ -388,7 +389,7 @@ def menu_outbounds(data: dict) -> bool:
         acts = [
             ("warp", "Toggle WARP"),
             ("tor", "Toggle TOR"),
-            ("add", "Add from share link (vless:// socks5:// http://)"),
+            ("add", "Add from share link (vless / vmess / trojan / ss / socks5 / http)"),
         ]
         if data["custom_outbounds"]:
             acts.append(("del", "Remove an added outbound"))

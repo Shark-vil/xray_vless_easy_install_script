@@ -331,7 +331,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     ao = sub.add_parser("add-outbound")
     ao.add_argument("items", nargs="+", metavar="warp|tor|LINK",
-                    help="warp, tor, or share links (vless:// socks5:// http://)")
+                    help="warp, tor, or share links (vless vmess trojan ss socks5 http)")
     ao.add_argument("--tag", default=None, help="tag for a single added link")
     ao.set_defaults(fn=cmd_add_outbound)
 

@@ -34,11 +34,17 @@ XVEI ставит и настраивает [Xray-core](https://github.com/XTLS/
 второй прыжок, скрывающий IP сервера, и **свои outbounds из share-ссылок**:
 
 * `vless://` — транспорты tcp / ws / grpc / xhttp / httpupgrade, security none / tls / reality;
+* `vmess://` — base64-JSON формата v2rayN или URL-формат, те же транспорты и security;
+* `trojan://` — те же транспорты и security, по умолчанию `tls`;
+* `ss://` — SIP002 (base64 или открытый `method:password`) и старый полностью base64-формат;
+  AEAD и 2022 шифры (`aes-128-gcm`, `aes-256-gcm`, `chacha20-ietf-poly1305`,
+  `xchacha20-ietf-poly1305`, `2022-blake3-*`);
 * `socks://`, `socks5://` — с `user:pass` или без (в том числе base64-формат v2rayN);
 * `http://`, `https://` — с `user:pass` или без.
 
 Не поддерживаются: `hysteria2://`; ссылки с `allowInsecure=1` (в актуальном
-Xray эта опция удалена).
+Xray эта опция удалена); потоковые шифры Shadowsocks (`aes-256-cfb` и т.п.) и
+плагины; старый VMess с `alterId > 0`.
 
 Добавленный outbound получает тег (`vless1`, `socks1`, … или `--tag`). Тег
 используется как группа правил, как туннель шаблона (`--tunnel <тег>`) и как

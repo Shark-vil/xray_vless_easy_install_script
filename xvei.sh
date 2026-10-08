@@ -130,7 +130,8 @@ xvei - Xray + Hysteria2 installer / live editor
               shadowsocks hysteria2
   xvei remove-inbound <tag>
   xvei add-outbound   <warp|tor|LINK ...> [--tag T]
-       LINK: vless:// socks5:// http:// share link (quote it: it contains &)
+       LINK: vless:// vmess:// trojan:// ss:// socks5:// http:// share link
+             (quote it: it contains &)
   xvei remove-outbound <warp|tor|TAG>
   xvei rule <add|remove|list> <block|direct|warp|tor|TAG> [matcher ...]
   xvei template <russia|iran|china> --exit <warp|tor|block|TAG> [--tunnel <warp|tor|TAG> | --direct]

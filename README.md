@@ -33,11 +33,17 @@ second hop that hides the server IP, and **your own outbounds from share
 links**:
 
 * `vless://` — transports tcp / ws / grpc / xhttp / httpupgrade, security none / tls / reality;
+* `vmess://` — v2rayN base64 JSON or URL form, same transports and security;
+* `trojan://` — same transports and security, `tls` by default;
+* `ss://` — SIP002 (base64 or plain `method:password`) and the legacy all-base64 form;
+  AEAD and 2022 ciphers (`aes-128-gcm`, `aes-256-gcm`, `chacha20-ietf-poly1305`,
+  `xchacha20-ietf-poly1305`, `2022-blake3-*`);
 * `socks://`, `socks5://` — with or without `user:pass` (also v2rayN base64 form);
 * `http://`, `https://` — with or without `user:pass`.
 
 Not supported: `hysteria2://`; links with `allowInsecure=1` (current Xray
-removed that option).
+removed that option); Shadowsocks stream ciphers (`aes-256-cfb` etc.) and
+plugins; legacy VMess with `alterId > 0`.
 
 An added outbound gets a tag (`vless1`, `socks1`, … or `--tag`). The tag is
 used as a rule bucket, as the template tunnel (`--tunnel <tag>`) and as the
