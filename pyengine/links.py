@@ -4,7 +4,7 @@ from __future__ import annotations
 import base64
 import json
 import os
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, unquote, urlencode
 
 import routing
 import state as st
@@ -48,6 +48,26 @@ def share_link(data: dict, ib: dict) -> str:
              "type": "xhttp", "host": domain, "path": "/" + ib["xhttp_path"], "mode": "auto"}
         return f"vless://{ib['uuid']}@{host}:{port}?{urlencode(q)}#{label}"
 
+    # Trojan clients must negotiate http/1.1: on :443 an h2 connection is
+    # handed to the camouflage site (see inbounds._vless_tls).
+    if t == "trojan-tcp":
+        q = {"security": "tls", "sni": domain, "fp": "chrome", "type": "tcp",
+             "alpn": "http/1.1"}
+        return f"trojan://{quote(ib['password'], safe='')}@{host}:443?{urlencode(q)}#{label}"
+
+    if t == "trojan-ws":
+        q = {"security": "tls", "sni": domain, "fp": "chrome", "type": "ws",
+             "host": domain, "path": "/" + ib["ws_path"], "alpn": "http/1.1"}
+        return f"trojan://{quote(ib['password'], safe='')}@{host}:443?{urlencode(q)}#{label}"
+
+    if t == "vmess-ws":
+        # v2rayN format: base64 of a JSON object
+        j = {"v": "2", "ps": unquote(label), "add": host, "port": "443", "id": ib["uuid"],
+             "aid": "0", "scy": "auto", "net": "ws", "type": "none", "host": domain,
+             "path": "/" + ib["ws_path"], "tls": "tls", "sni": domain,
+             "alpn": "http/1.1", "fp": "chrome"}
+        return "vmess://" + base64.b64encode(json.dumps(j).encode()).decode()
+
     if t == "shadowsocks":
         userinfo = base64.urlsafe_b64encode(
             f"{ib['method']}:{ib['password']}".encode()).decode().rstrip("=")
@@ -72,6 +92,19 @@ def _client_outbound(data: dict, ib: dict) -> dict:
         return {"protocol": "shadowsocks", "tag": "proxy",
                 "settings": {"servers": [{"address": host, "port": ib["port"],
                                           "method": ib["method"], "password": ib["password"]}]}}
+    if t in ("trojan-tcp", "trojan-ws", "vmess-ws"):
+        stream = {"network": "tcp" if t == "trojan-tcp" else "ws", "security": "tls",
+                  "tlsSettings": {"serverName": domain, "fingerprint": "chrome",
+                                  "alpn": ["http/1.1"]}}
+        if t != "trojan-tcp":
+            stream["wsSettings"] = {"path": "/" + ib["ws_path"], "host": domain}
+        if t == "vmess-ws":
+            settings = {"vnext": [{"address": host, "port": 443,
+                                   "users": [{"id": ib["uuid"], "security": "auto"}]}]}
+        else:
+            settings = {"servers": [{"address": host, "port": 443, "password": ib["password"]}]}
+        return {"protocol": "vmess" if t == "vmess-ws" else "trojan", "tag": "proxy",
+                "settings": settings, "streamSettings": stream}
     # vless family
     user = {"id": ib["uuid"], "encryption": "none"}
     stream: dict = {}

@@ -53,7 +53,7 @@ def _new_inbound(data: dict, itype: str, opts: dict) -> dict:
             and not os.path.exists(HY2_MARKER)):
         util.die("Hysteria2 is already configured on this server outside xvei "
                  "(/etc/hysteria/config.yaml); xvei will not overwrite it")
-    if itype in ("vless-tls", "vless-ws", "vless-xhttp-tls"):
+    if itype in st.TLS_TYPES:
         _ensure_domain(data)
     ib: dict = {"type": itype, "tag": tag, "uuid": util.new_uuid(),
                 "email": data.get("email") or "user@xvei"}
@@ -65,10 +65,13 @@ def _new_inbound(data: dict, itype: str, opts: dict) -> dict:
         if x and x.get("standalone"):
             x.pop("standalone", None)
             x.pop("port", None)
-    elif itype == "vless-ws":
+    elif itype in st.FALLBACK_TYPES:
         if not st.has_type(data, "vless-tls"):
-            util.die("vless-ws needs vless-tls first (it rides its :443 fallback)")
-        ib["ws_path"] = util.token(12)
+            util.die(f"{itype} needs vless-tls first (it rides its :443 fallback)")
+        if itype != "trojan-tcp":
+            ib["ws_path"] = util.token(12)
+        if itype.startswith("trojan"):
+            ib["password"] = util.token(16)
     elif itype == "vless-xhttp-reality":
         used = _used_ports(data)
         default_port = "443" if 443 not in used else "8443"
@@ -129,7 +132,7 @@ def remove_inbound(data: dict, tag: str) -> bool:
         util.die(f"no inbound tagged {tag!r}")
     if ib["type"] == "vless-tls":
         deps = [x["tag"] for x in data["inbounds"]
-                if x["type"] in ("vless-ws",) or
+                if x["type"] in st.FALLBACK_TYPES or
                 (x["type"] == "vless-xhttp-tls" and not x.get("standalone"))]
         if deps:
             util.die(f"remove {', '.join(deps)} first (they ride vless-tls)")
@@ -374,6 +377,9 @@ def menu_inbounds(data: dict) -> bool:
                 ("vless-ws", "VLESS WebSocket (fallback on :443)"),
                 ("vless-xhttp-reality", "VLESS XHTTP + REALITY (site masquerade, no domain)"),
                 ("vless-xhttp-tls", "VLESS XHTTP + TLS certificate"),
+                ("trojan-tcp", "Trojan (TCP, shares :443 via fallback, legacy)"),
+                ("trojan-ws", "Trojan WebSocket (fallback on :443, legacy)"),
+                ("vmess-ws", "VMess WebSocket (fallback on :443, legacy)"),
                 ("shadowsocks", "Shadowsocks"),
                 ("hysteria2", "Hysteria2 (via local SOCKS5 -> Xray)"),
             ])

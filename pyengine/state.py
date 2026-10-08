@@ -14,9 +14,17 @@ INBOUND_TYPES = (
     "vless-ws",
     "vless-xhttp-reality",
     "vless-xhttp-tls",
+    "trojan-tcp",
+    "trojan-ws",
+    "vmess-ws",
     "shadowsocks",
     "hysteria2",
 )
+
+# inbounds that live behind vless-tls's :443 fallbacks (no port of their own)
+FALLBACK_TYPES = ("vless-ws", "trojan-tcp", "trojan-ws", "vmess-ws")
+# inbounds that need the domain's TLS certificate
+TLS_TYPES = ("vless-tls", "vless-xhttp-tls") + FALLBACK_TYPES
 
 RULE_BUCKETS = ("block", "warp", "tor", "direct")
 COUNTRY_TEMPLATES = ("russia", "iran", "china")
@@ -173,8 +181,7 @@ def proxied_inbound_tags(data: dict) -> list[str]:
 def needs(data: dict) -> list[str]:
     """External resources the current state requires bash to provision."""
     out: list[str] = []
-    tls_users = {"vless-tls", "vless-ws", "vless-xhttp-tls"}
-    if any(ib["type"] in tls_users for ib in data["inbounds"]):
+    if any(ib["type"] in TLS_TYPES for ib in data["inbounds"]):
         out.append("cert")
     if has_type(data, "hysteria2"):
         out.append("hysteria2")

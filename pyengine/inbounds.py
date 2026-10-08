@@ -6,6 +6,9 @@ import util
 
 WS_SOCKET = "@vless-ws"
 XHTTP_SOCKET = "@vless-xhttp"
+TROJAN_TCP_SOCKET = "@trojan-tcp"
+TROJAN_WS_SOCKET = "@trojan-ws"
+VMESS_WS_SOCKET = "@vmess-ws"
 SNIFF = {"enabled": True, "destOverride": ["http", "tls", "quic"], "routeOnly": False}
 
 
@@ -24,12 +27,20 @@ def _vless_tls(ib: dict, data: dict) -> dict:
     xhttp = st.get_type(data, "vless-xhttp-tls")
     if xhttp and xhttp.get("standalone") is not True:
         fallbacks.append({"path": "/" + xhttp["xhttp_path"], "dest": XHTTP_SOCKET, "xver": 0})
-    ws = st.get_type(data, "vless-ws")
-    if ws:
-        fallbacks.append({"path": "/" + ws["ws_path"], "dest": WS_SOCKET, "xver": 0})
+    for itype, sock in (("vless-ws", WS_SOCKET), ("trojan-ws", TROJAN_WS_SOCKET),
+                        ("vmess-ws", VMESS_WS_SOCKET)):
+        ws = st.get_type(data, itype)
+        if ws:
+            fallbacks.append({"path": "/" + ws["ws_path"], "dest": sock, "xver": 0})
     # h2c goes to its own nginx listener; see pyengine/sites.py for why.
     fallbacks.append({"alpn": "h2", "dest": "8081", "xver": 0})
-    fallbacks.append({"dest": "8080", "xver": 0})
+    # Anything else that is not VLESS: Trojan when enabled (it falls back to the
+    # site itself), otherwise straight to the site. Trojan clients must
+    # therefore negotiate http/1.1 - an h2 one would land on the site.
+    if st.get_type(data, "trojan-tcp"):
+        fallbacks.append({"dest": TROJAN_TCP_SOCKET, "xver": 0})
+    else:
+        fallbacks.append({"dest": "8080", "xver": 0})
     return {
         "listen": "0.0.0.0",
         "port": ib.get("port", 443),
@@ -130,6 +141,53 @@ def _vless_xhttp_tls(ib: dict, data: dict) -> dict:
     }
 
 
+def _ws_stream(ib: dict) -> dict:
+    return {"network": "ws", "security": "none", "wsSettings": {"path": "/" + ib["ws_path"]}}
+
+
+def _trojan_clients(ib: dict) -> list[dict]:
+    c: dict = {"password": ib["password"]}
+    if ib.get("email"):
+        c["email"] = ib["email"]
+    return [c]
+
+
+# Trojan / VMess sit on local sockets behind vless-tls: TLS is terminated there,
+# so plaintext here never leaves the machine.
+def _trojan_tcp(ib: dict, data: dict) -> dict:
+    return {
+        "listen": TROJAN_TCP_SOCKET,
+        "protocol": "trojan",
+        "tag": ib["tag"],
+        "settings": {"clients": _trojan_clients(ib),
+                     "fallbacks": [{"dest": "8080", "xver": 0}]},
+        "streamSettings": {"network": "tcp", "security": "none"},
+        "sniffing": SNIFF,
+    }
+
+
+def _trojan_ws(ib: dict, data: dict) -> dict:
+    return {
+        "listen": TROJAN_WS_SOCKET,
+        "protocol": "trojan",
+        "tag": ib["tag"],
+        "settings": {"clients": _trojan_clients(ib)},
+        "streamSettings": _ws_stream(ib),
+        "sniffing": SNIFF,
+    }
+
+
+def _vmess_ws(ib: dict, data: dict) -> dict:
+    return {
+        "listen": VMESS_WS_SOCKET,
+        "protocol": "vmess",
+        "tag": ib["tag"],
+        "settings": {"clients": _clients(ib)},
+        "streamSettings": _ws_stream(ib),
+        "sniffing": SNIFF,
+    }
+
+
 def _shadowsocks(ib: dict, data: dict) -> dict:
     return {
         "listen": "0.0.0.0",
@@ -162,6 +220,9 @@ _BUILDERS = {
     "vless-ws": _vless_ws,
     "vless-xhttp-reality": _vless_xhttp_reality,
     "vless-xhttp-tls": _vless_xhttp_tls,
+    "trojan-tcp": _trojan_tcp,
+    "trojan-ws": _trojan_ws,
+    "vmess-ws": _vmess_ws,
     "shadowsocks": _shadowsocks,
     "hysteria2": _hysteria2_socks,
 }
@@ -198,6 +259,9 @@ def default_tag(itype: str) -> str:
         "vless-ws": "vless_ws",
         "vless-xhttp-reality": "vless_reality",
         "vless-xhttp-tls": "vless_xhttp",
+        "trojan-tcp": "trojan",
+        "trojan-ws": "trojan_ws",
+        "vmess-ws": "vmess_ws",
         "shadowsocks": "ss",
         "hysteria2": "hy2",
     }[itype]

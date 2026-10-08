@@ -139,7 +139,7 @@ xvei - Xray + Hysteria2 installer / live editor
 
   xvei add-inbound  <type> [--port N] [--dest SNI] [--method M]
        types: vless-tls vless-ws vless-xhttp-reality vless-xhttp-tls
-              shadowsocks hysteria2
+              trojan-tcp trojan-ws vmess-ws shadowsocks hysteria2
   xvei remove-inbound <tag>
   xvei add-outbound   <warp|tor|LINK ...> [--tag T]
        LINK: vless:// vmess:// trojan:// ss:// socks5:// http:// share link

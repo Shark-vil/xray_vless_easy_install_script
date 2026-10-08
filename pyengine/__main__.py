@@ -323,6 +323,9 @@ def cmd_wizard(a) -> int:
         ("vless-ws", "VLESS WebSocket"),
         ("vless-xhttp-reality", "VLESS XHTTP + REALITY"),
         ("vless-xhttp-tls", "VLESS XHTTP + TLS cert"),
+        ("trojan-tcp", "Trojan (TCP, shares :443, legacy clients only)"),
+        ("trojan-ws", "Trojan WebSocket (legacy clients only)"),
+        ("vmess-ws", "VMess WebSocket (legacy clients only)"),
         ("shadowsocks", "Shadowsocks"),
         ("hysteria2", "Hysteria2"),
     ]
@@ -332,9 +335,10 @@ def cmd_wizard(a) -> int:
             chosen.append(val)
     if not chosen:
         util.die("nothing selected")
-    tls_family = {"vless-tls", "vless-ws", "vless-xhttp-tls"}
+    tls_family = set(st.TLS_TYPES)
     need_domain = bool(tls_family & set(chosen)) or "hysteria2" in chosen
-    if ("vless-ws" in chosen or "vless-xhttp-tls" in chosen) and "vless-tls" not in chosen:
+    rides_443 = set(st.FALLBACK_TYPES) | {"vless-xhttp-tls"}
+    if rides_443 & set(chosen) and "vless-tls" not in chosen:
         util.log("vless-tls auto-enabled (required for the chosen fallback inbounds)")
         chosen.insert(0, "vless-tls")
     if need_domain:
