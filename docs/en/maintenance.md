@@ -47,6 +47,40 @@ the Hysteria2 cert copy and restarts `xray`, `nginx` and `hysteria2`. Pre/post
 hooks (`renewal-hooks/{pre,post}/xvei-free-port80.sh`) stop nginx for the
 renewal challenge only if it holds `:80`, then start it again.
 
+## Removing xvei (keeping Xray)
+
+**Adopted setup** (Xray was there before xvei): `xvei remove` (menu:
+`11) Uninstall xvei`) already keeps Xray. It removes only what xvei set up
+itself (WARP, TOR, Hysteria2, Turnable, its nginx vhost, certbot hooks), asks
+whether to restore `config.json.xvei-orig`, and deletes the xvei state and
+`~/xray_eis`. Xray, its service and certificates stay. Then remove the
+command and code:
+
+```bash
+sed -i '/_renew-hook/d' /etc/letsencrypt/renewal/*.conf
+rm -f /usr/local/bin/xvei
+rm -rf /usr/local/lib/xvei      # or your git clone folder
+```
+
+**Regular install** (xvei installed Xray): `xvei remove` uninstalls Xray too.
+To remove only xvei and leave everything running as it is now (Xray with the
+current `config.json`, nginx, WARP, TOR, Hysteria2), delete xvei's files by
+hand:
+
+```bash
+rm -f /usr/local/etc/xray/xvei-state.json /usr/local/etc/xray/xvei-state.json.bak
+rm -rf /var/lib/xvei
+rm -f /etc/letsencrypt/renewal-hooks/deploy/xvei-restart.sh
+rm -f /etc/letsencrypt/renewal-hooks/{pre,post}/xvei-free-port80.sh
+sed -i '/_renew-hook/d' /etc/letsencrypt/renewal/*.conf
+rm -f /usr/local/bin/xvei
+rm -rf /usr/local/lib/xvei      # or your git clone folder
+rm -rf ~/xray_eis               # client links/configs, optional
+```
+
+Without the certbot hooks, restart Xray yourself after a certificate renewal
+(`systemctl restart xray`), or add your own deploy hook.
+
 ## Files
 
 | path | contents |
