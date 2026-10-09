@@ -1,4 +1,4 @@
-# XVEI — Xray (+ Hysteria2) easy install & live editor
+# XVEI — A simple Xray server setup manager
 
 ## [Документация на русском](/docs/RU.md)
 

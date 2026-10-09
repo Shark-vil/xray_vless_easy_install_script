@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# xvei - modular Xray (+ Hysteria2) installer / live editor.
+# xvei - a simple Xray server setup manager.
 # Repo: https://github.com/Shark-vil/xray_vless_easy_install_script
 
 # No `set -e`: this is an interactive tool and many helpers legitimately return
@@ -131,7 +131,7 @@ _apply_after() {
 
 print_help() {
     cat <<'EOF'
-xvei - Xray + Hysteria2 installer / live editor
+xvei - a simple Xray server setup manager
 
   xvei                     open the interactive menu (or offer to install)
   xvei install             guided first-time setup

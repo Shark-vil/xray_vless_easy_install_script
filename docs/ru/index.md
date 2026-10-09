@@ -1,5 +1,7 @@
 # XVEI
 
+**Простой менеджер настройки Xray-сервера.**
+
 [🇬🇧 English version](../en/index.md) · [GitHub](https://github.com/Shark-vil/xray_vless_easy_install_script)
 
 XVEI ставит [Xray-core](https://github.com/XTLS/Xray-core) на Linux-сервер (по

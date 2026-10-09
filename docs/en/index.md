@@ -1,5 +1,7 @@
 # XVEI
 
+**A simple Xray server setup manager.**
+
 [🇷🇺 Русская версия](../ru/index.md) · [GitHub](https://github.com/Shark-vil/xray_vless_easy_install_script)
 
 XVEI installs [Xray-core](https://github.com/XTLS/Xray-core) on a Linux server
