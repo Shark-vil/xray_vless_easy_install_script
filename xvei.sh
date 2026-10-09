@@ -98,7 +98,8 @@ self_update() {
 }
 
 _apply_after() {
-    # run a py mutation, then apply_all iff it changed state.
+    # run a py mutation (it stages the changed config.json), then apply_all
+    # iff something changed.
     # The engine opens /dev/tty itself for any prompts it needs.
     py "$@"
     local rc=$?
@@ -123,18 +124,20 @@ xvei - a simple Xray server setup manager
               trojan-tcp trojan-ws vmess-ws shadowsocks hysteria2
               turnable (UNSTABLE, NOT anonymous: VK sees the server IP;
                         --dest takes the VK call link)
-  xvei remove-inbound <tag>   (also an inbound of the adopted config)
+  xvei remove-inbound <tag>
   xvei add-outbound   <warp|tor|LINK ...> [--tag T]
        LINK: vless:// vmess:// trojan:// ss:// socks5:// http:// share link
              (quote it: it contains &)
-  xvei remove-outbound <warp|tor|TAG>   (also an outbound of the adopted config)
-  xvei rule <add|remove|list> <block|direct|warp|tor|TAG> [matcher ...]
-  xvei rule list           all rules, the adopted config's ones numbered
-  xvei rule delete <N>     remove rule N of the adopted config
+  xvei remove-outbound <warp|tor|TAG>
+  xvei rule add|remove <OUTBOUND|warp|tor> <matcher ...>
+                           send domains / IPs to an outbound (or stop)
+  xvei rule list [OUTBOUND] all rules, numbered (or one outbound's matchers)
+  xvei rule delete <N>     delete rule N
   xvei template <russia|iran|china> --exit <warp|tor|block|TAG> [--tunnel <warp|tor|TAG> | --direct]
   xvei template popular --tunnel <warp|tor|TAG>
   xvei template none [--tunnel <warp|tor|TAG> | --direct | --keep]
-       --keep (adopted setups): no catch-all rule, the existing default stays
+       everything else: --tunnel / --direct, or --keep (the default) leaves
+       the last catch-all rule (or the first outbound as default) as it is
   xvei site [list | auth | blank | 404 | <preset> | proxy <url|preset>]
        presets: nebula critters game2048 snake notes
 

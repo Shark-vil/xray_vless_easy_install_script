@@ -58,32 +58,18 @@ self-signed certificate, so TLS inbounds will not work until this is fixed.
    server's firewall and in the provider's control panel.
 3. Then run `xvei apply` — it requests the certificate again.
 
-## "generated xray config failed validation; live config untouched"
+## "the changed config failed validation; … was not touched"
 
-The change was saved in the state but not applied; Xray keeps running with the
-previous config. The error from `xray -test` is printed above the message. To
-go back to the previous state:
-
-```bash
-cp /usr/local/etc/xray/xvei-state.json.bak /usr/local/etc/xray/xvei-state.json
-```
-
-```bash
-xvei apply
-```
+The change was not applied and is dropped; Xray keeps running with the
+previous config. The error from `xray -test` is printed above the message. If
+`config.json` was edited by hand, the error may be in that edit - check it with
+`xray run -test -config /usr/local/etc/xray/config.json`.
 
 ## "xray did not come up; rolling back to previous config"
 
 The new config passed the check but Xray did not start — usually a port is
 already in use by another program. See `journalctl -u xray -n 50`; list the
 listening ports with `ss -tulpn`.
-
-## "config.json was changed outside xvei"
-
-`config.json` was edited by hand since xvei last wrote it. Applying will
-replace it (the current file is kept as `config.json.bak`). To keep the manual
-changes instead, make them through xvei (inbounds, outbounds, rules) and apply
-again.
 
 ## Turnable
 

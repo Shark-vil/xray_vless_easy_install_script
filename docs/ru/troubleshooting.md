@@ -59,32 +59,18 @@ Let's Encrypt не смог проверить домен. Самоподпис�
    файрволе сервера и в панели провайдера.
 3. Затем выполните `xvei apply` — сертификат будет запрошен снова.
 
-## «generated xray config failed validation; live config untouched»
+## «the changed config failed validation; … was not touched»
 
-Изменение сохранено в состоянии, но не применено; Xray работает со старым
-конфигом. Ошибка `xray -test` выведена над этим сообщением. Чтобы вернуться к
-предыдущему состоянию:
-
-```bash
-cp /usr/local/etc/xray/xvei-state.json.bak /usr/local/etc/xray/xvei-state.json
-```
-
-```bash
-xvei apply
-```
+Изменение не применено и отброшено; Xray работает со старым конфигом. Ошибка
+`xray -test` выведена над этим сообщением. Если `config.json` правили
+вручную, ошибка может быть в этой правке — проверьте его командой
+`xray run -test -config /usr/local/etc/xray/config.json`.
 
 ## «xray did not come up; rolling back to previous config»
 
 Новый конфиг прошёл проверку, но Xray не запустился — обычно порт уже занят
 другой программой. Смотрите `journalctl -u xray -n 50`; список занятых портов —
 `ss -tulpn`.
-
-## «config.json was changed outside xvei»
-
-`config.json` правили вручную после последней записи xvei. Применение заменит
-его (текущий файл сохраняется как `config.json.bak`). Чтобы не потерять ручные
-изменения, внесите их через xvei (inbounds, outbounds, правила) и примените
-снова.
 
 ## Turnable
 

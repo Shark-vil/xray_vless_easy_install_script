@@ -83,44 +83,39 @@ The `xvei` command points to the clone folder. Update with `git pull`;
 If Xray is installed and `/usr/local/etc/xray/config.json` exists but xvei has
 never been set up, `xvei install` **adopts** the existing setup: nothing is
 installed (except Python, if missing), rewritten or restarted. The config is
-read as JSON5 (comments, trailing commas) and stored as the base of the xvei
-state.
+read as JSON5 (comments, trailing commas).
 
-Afterwards xvei edits are merged into that config:
+xvei does not keep a copy of it: `config.json` stays the source of truth and
+is read on every run, so whatever is edited there by hand shows up in the
+menus at once and is kept by the next change made through xvei.
 
-* existing inbounds, outbounds, rules and all other sections (`log`, `dns`,
-  `api`, `stats`, `policy`, …) stay unchanged;
-* the first existing outbound stays first and remains the default route;
-* xvei rules and templates go before the existing rules;
-* no catch-all rule is added unless an exit mode is chosen explicitly
-  (`xvei template none --keep` returns to the existing default);
-* tor, the WARP container, Hysteria2 and nginx are stopped or reconfigured
-  only if xvei set them up itself.
-
-The existing parts are not hidden from xvei, they are shown next to its own
-(marked "existing"):
-
-* **links and QR codes** for the existing inbounds: VLESS / VMess / Trojan /
+* **links and QR codes** for every inbound: VLESS / VMess / Trojan /
   Shadowsocks (TCP, WS, XHTTP, HTTPUpgrade, gRPC; TLS or REALITY), one per
   client, named by its `email`. An inbound that listens on a unix socket or
   localhost and is reached through the `fallbacks` of a TLS inbound (e.g. WS
   behind VLESS TLS on `:443`) gets that inbound's port and TLS. SOCKS / HTTP
   inbounds open to the internet get `socks5://` / `http://` links, SOCKS also a
   `t.me/socks` link for Telegram. `xvei qr <tag> [client]`;
-* **outbounds**: listed, usable as rule targets and as the template's tunnel or
+* **outbounds** are usable as rule targets and as the template's tunnel or
   exit (e.g. an existing `warp_proxy` or a SOCKS proxy). If the config already
   has `warp_proxy` / `tor_proxy`, xvei does not start its own WARP / TOR next
   to them;
-* **routing rules**: listed in the order Xray checks them (`xvei rule list`);
-  new matchers can be sent to any outbound, existing rules can be removed
-  (`xvei rule delete <N>`);
-* existing inbounds and outbounds can be removed (`xvei remove-inbound <tag>`,
-  `xvei remove-outbound <tag>`); xvei refuses while a rule still uses them.
+* **routing rules** are listed in the order Xray checks them
+  (`xvei rule list`); domains / IPs can be sent to any outbound, any rule can be
+  deleted (`xvei rule delete <N>`);
+* WS / XHTTP / Trojan inbounds added through xvei ride the `fallbacks` of an
+  existing TLS inbound on `:443`, if there is one;
+* inbounds and outbounds can be removed (`xvei remove-inbound <tag>`,
+  `xvei remove-outbound <tag>`); xvei refuses while a rule still uses them;
+* the first outbound stays the default route; no guardrails and no catch-all
+  rule are added unless an exit is chosen explicitly;
+* tor, the WARP container, Hysteria2 and nginx are stopped or reconfigured
+  only if xvei set them up itself.
 
-Before the first write the original is saved as `config.json.xvei-orig`
-(comments included; the rebuilt file has none). If `config.json` is edited by
-hand after xvei wrote it, xvei asks before overwriting it. `xvei remove`
-removes only what xvei added and offers to restore the original.
+Before xvei first changes the file, the original is saved as
+`config.json.xvei-orig` (comments included; xvei writes plain JSON).
+`xvei remove --all` removes only what xvei added and offers to restore the
+original.
 
 Not adopted (nothing is changed, the reason is printed): Xray run by a panel
 (x-ui / 3x-ui), `xray.service` reading a config from another path or using

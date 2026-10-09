@@ -74,6 +74,8 @@ main_menu() {
         fi
         return 0
     fi
+    # a change staged by a run that never got to apply it is stale
+    rm -f "$XRAY_PENDING" "$XRAY_PENDING.bak"
     while true; do
         local domain; domain="$(state_get domain)"
         ui_header "XVEI${domain:+ $_s_sep $domain}"

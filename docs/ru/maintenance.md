@@ -85,8 +85,8 @@ remove --all` — вместе со всем, что он настроил. В �
 
 | путь | содержимое |
 |---|---|
-| `/usr/local/etc/xray/xvei-state.json` | источник правды (root, `0600`) |
-| `/usr/local/etc/xray/config.json` | сгенерированный конфиг Xray (`.bak` сохраняется) |
+| `/usr/local/etc/xray/config.json` | конфиг Xray, источник правды; правится вручную или через xvei (`.bak` сохраняется) |
+| `/usr/local/etc/xray/xvei-state.json` | то, чего нет в config.json: домен, сертификат, сайт, Hysteria2 / Turnable (root, `0600`) |
 | `/usr/local/etc/xray/config.json.xvei-orig` | принятая настройка: конфиг до xvei |
 | `/etc/hysteria/config.yaml` | сгенерированный конфиг Hysteria2 |
 | `/etc/nginx/sites-enabled/xvei.conf` (Debian/Ubuntu) или `/etc/nginx/conf.d/xvei.conf` (CentOS), `/var/www/xvei-site` | vhost фолбэка + сайт-прикрытие |

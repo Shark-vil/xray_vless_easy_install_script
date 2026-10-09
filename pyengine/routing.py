@@ -1,15 +1,21 @@
-"""Routing rules: base guardrails + template + exit mode + user edits."""
+"""Routing rules in config.json: guardrails, templates, exit, matchers.
+
+Nothing here is kept outside config.json. A template's rules are recognised
+by what they match - a country's domain rule followed by its IP rule, both to
+the same outbound, or the exact "popular" list to direct; a rule edited by
+hand is no longer the template's, it is an ordinary rule. The exit is the
+last rule when it catches everything.
+"""
 from __future__ import annotations
 
-import outbounds as ob
-import state as st
+import xrayconf as xc
 
 # Country -> (domain matchers, ip matchers) that identify "in-country" traffic.
 # This traffic is NEVER sent direct from the server: a VPS reaching straight
 # into that country's networks (banks, gov, ISPs...) burns/exposes the
 # server's real IP to that country's monitoring, which is exactly what
 # usually gets a hosting IP blacklisted. It always exits via WARP/TOR, or is
-# blocked outright -- see `country_exit` in routing state.
+# blocked outright.
 COUNTRY_MATCHERS = {
     "russia": (["geosite:category-ru", "geosite:category-gov-ru"], ["geoip:ru"]),
     "iran": (["geosite:category-ir"], ["geoip:ir"]),
@@ -28,36 +34,89 @@ POPULAR_DOMAINS = [
     "geosite:microsoft", "geosite:apple", "geosite:amazon", "geosite:openai",
 ]
 
-_EXIT_TAGS = {"warp": ob.TAG_WARP, "tor": ob.TAG_TOR, "block": ob.TAG_BLOCK,
-              "direct": ob.TAG_DIRECT}
+# a fresh config starts with these
+GUARD_RULES = [
+    {"type": "field", "outboundTag": "block", "protocol": ["bittorrent"]},
+    {"type": "field", "outboundTag": "block", "ip": ["geoip:private"], "network": "tcp,udp"},
+    {"type": "field", "outboundTag": "block", "port": "135,137,138,139"},
+]
 
 
+def exit_rule(tag: str) -> dict:
+    return {"type": "field", "outboundTag": tag, "network": "tcp,udp"}
 
-def _exit_tag(data: dict, name: str | None) -> str | None:
-    """Outbound tag for warp / tor / block / direct or a custom outbound tag."""
-    if name in _EXIT_TAGS:
-        return _EXIT_TAGS[name]
-    if name and name in st.extra_buckets(data):
-        return name
-    return None
 
+def template_rules(template: str, tag: str | None = None) -> list[dict]:
+    """The rules of a template; `tag` is where in-country traffic goes."""
+    if template in COUNTRY_MATCHERS:
+        dom, ips = COUNTRY_MATCHERS[template]
+        return [{"type": "field", "outboundTag": tag or "block", "domain": list(dom)},
+                {"type": "field", "outboundTag": tag or "block", "ip": list(ips)}]
+    if template == "popular":
+        return [{"type": "field", "outboundTag": "direct", "domain": list(POPULAR_DOMAINS)}]
+    return []
+
+
+def _matchers(rule: dict) -> dict:
+    return {k: v for k, v in rule.items() if k not in ("type", "outboundTag")}
+
+
+def template_marks(rules: list[dict]) -> dict[int, str]:
+    """{index: template name} of the rules that make up a template."""
+    marks: dict[int, str] = {}
+    popular = _matchers(template_rules("popular")[0])
+    for i, r in enumerate(rules):
+        if r.get("outboundTag") == "direct" and _matchers(r) == popular:
+            marks[i] = "popular"
+            continue
+        if i + 1 >= len(rules) or r.get("outboundTag") != rules[i + 1].get("outboundTag"):
+            continue
+        for name in COUNTRY_MATCHERS:
+            dom, ips = template_rules(name)
+            if _matchers(r) == _matchers(dom) and _matchers(rules[i + 1]) == _matchers(ips):
+                marks[i] = marks[i + 1] = name
+    return marks
+
+
+def is_exit(rule: dict) -> bool:
+    """A rule that catches all traffic: only network tcp,udp and a target."""
+    m = _matchers(rule)
+    return set(m) == {"network"} and str(m["network"]).replace(" ", "") in (
+        "tcp,udp", "udp,tcp") and bool(rule.get("outboundTag"))
+
+
+def detect(cfg: dict) -> dict:
+    """{"template": name, "country_exit": tag or None, "exit": tag or None}."""
+    rules = xc.rules_view(cfg)
+    out = {"template": "none", "country_exit": None, "exit": None}
+    for i, name in template_marks(rules).items():
+        out["template"] = name
+        if name in COUNTRY_MATCHERS:
+            out["country_exit"] = rules[i].get("outboundTag")
+    if rules and is_exit(rules[-1]):
+        out["exit"] = rules[-1]["outboundTag"]
+    return out
+
+
+def apply_template(cfg: dict, template: str, *, country_exit: str | None = None,
+                   exit: str | None = "keep") -> bool:
+    """Replace the template's rules (they go right before the exit) and set the
+    exit: "keep" leaves it, None removes it, a tag catches everything there."""
+    rules = xc.rules(cfg)
+    before = [dict(r) for r in rules]
+    tail = rules[-1] if rules and is_exit(rules[-1]) else None
+    marks = template_marks(rules)
+    body = [r for i, r in enumerate(rules[:-1] if tail else rules) if i not in marks]
+    body += template_rules(template, country_exit)
+    if exit != "keep":
+        tail = exit_rule(exit) if exit else None
+    rules[:] = body + ([tail] if tail else [])
+    return rules != before
+
+
+# ---- matchers: "send these domains / IPs to that outbound" ------------------
 
 _DOMAIN_PREFIXES = ("geosite:", "domain:", "full:", "regexp:", "keyword:")
-
-
-def _split_matchers(items: list[str]) -> tuple[list[str], list[str]]:
-    domains, ips = [], []
-    for it in items:
-        it = it.strip()
-        if not it:
-            continue
-        if it.startswith(_DOMAIN_PREFIXES):
-            domains.append(it)
-        elif it.startswith("geoip:") or "/" in it or _looks_ip(it):
-            ips.append(it)
-        else:
-            domains.append("domain:" + it)
-    return domains, ips
 
 
 def _looks_ip(s: str) -> bool:
@@ -70,86 +129,67 @@ def _looks_ip(s: str) -> bool:
         return False
 
 
-def _rule(tag: str, items: list[str], *, extra: dict | None = None) -> list[dict]:
-    domains, ips = _split_matchers(items)
-    rules: list[dict] = []
-    if domains:
-        r = {"type": "field", "outboundTag": tag, "domain": domains}
-        if extra:
-            r.update(extra)
-        rules.append(r)
-    if ips:
-        r = {"type": "field", "outboundTag": tag, "ip": ips}
-        if extra:
-            r.update(extra)
-        rules.append(r)
-    return rules
+def split_matcher(item: str) -> tuple[str, str]:
+    """("domain" | "ip", normalised matcher)."""
+    item = item.strip()
+    if item.startswith(_DOMAIN_PREFIXES):
+        return "domain", item
+    if item.startswith("geoip:") or "/" in item or _looks_ip(item):
+        return "ip", item
+    return "domain", "domain:" + item
 
 
-def build(data: dict) -> dict:
-    """Routing section. For an adopted setup the existing routing is kept: its
-    rules run after xvei's own rules and template, its other keys (domain
-    strategy, balancers...) stay as they are, and no guardrails or catch-all
-    are added unless an exit mode was chosen explicitly (mode != "keep")."""
-    routing = data["routing"]
-    adopted = bool(data.get("adopted"))
-    base = ((data.get("base") or {}).get("routing") or {}) if adopted else {}
-    rules: list[dict] = []
+def _simple(rule: dict, tag: str, kind: str) -> bool:
+    """A rule that only sends one kind of matcher to `tag`."""
+    return rule.get("outboundTag") == tag and set(_matchers(rule)) == {kind} \
+        and isinstance(rule.get(kind), list)
 
-    # 1. hard guardrails
-    if not adopted:
-        rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK, "protocol": ["bittorrent"]})
-        rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK,
-                      "ip": ["geoip:private"], "network": "tcp,udp"})
-        rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK, "port": "135,137,138,139"})
 
-    # 2. user edits (highest priority after guardrails)
-    user = data.get("rules", {})
-    rules += _rule(ob.TAG_BLOCK, user.get("block", []))
-    rules += _rule(ob.TAG_DIRECT, user.get("direct", []))
-    if data["outbounds"]["warp"]:
-        rules += _rule(ob.TAG_WARP, user.get("warp", []))
-    if data["outbounds"]["tor"]:
-        rules += _rule(ob.TAG_TOR, user.get("tor", []))
-    for tag in st.extra_buckets(data):
-        rules += _rule(tag, user.get(tag, []))
+def _first_free_slot(rules: list[dict]) -> int:
+    i = 0
+    while i < len(rules) and any(rules[i] == g for g in GUARD_RULES):
+        i += 1
+    return i
 
-    template = routing.get("template") or "none"
 
-    # 3. template rules
-    if template in COUNTRY_MATCHERS:
-        # In-country traffic: WARP / TOR / custom outbound / block -- never direct.
-        exit_name = routing.get("country_exit")
-        tag = None if exit_name == "direct" else _exit_tag(data, exit_name)
-        tag = tag or ob.TAG_BLOCK
-        dom, ips = COUNTRY_MATCHERS[template]
-        if dom:
-            rules.append({"type": "field", "outboundTag": tag, "domain": dom})
-        if ips:
-            rules.append({"type": "field", "outboundTag": tag, "ip": ips})
-    elif template == "popular":
-        rules.append({"type": "field", "outboundTag": ob.TAG_DIRECT,
-                      "domain": list(POPULAR_DOMAINS)})
+def add_matcher(cfg: dict, tag: str, item: str) -> bool:
+    """Add to the first plain rule that sends such matchers to `tag`, or to a
+    new one at the top (after the guardrails): checked before the rest."""
+    kind, value = split_matcher(item)
+    rules = xc.rules(cfg)
+    marks = template_marks(rules)
+    rule = next((r for i, r in enumerate(rules) if _simple(r, tag, kind) and i not in marks), None)
+    if rule is None:
+        rules.insert(_first_free_slot(rules), {"type": "field", "outboundTag": tag, kind: [value]})
+        return True
+    if value in rule[kind]:
+        return False
+    rule[kind].append(value)
+    return True
 
-    # adopted: the existing rules, unchanged and in their original order
-    rules += [dict(x) for x in base.get("rules") or []]
 
-    # 4. exit mode: everything else
-    if template == "popular":
-        # Everything outside the popular list goes through a tunnel.
-        tag = _exit_tag(data, routing.get("tunnel")) or ob.TAG_WARP
-        rules.append({"type": "field", "outboundTag": tag, "network": "tcp,udp"})
-    elif routing.get("mode") == "tunnel" and _exit_tag(data, routing.get("tunnel")):
-        rules.append({"type": "field", "outboundTag": _exit_tag(data, routing["tunnel"]),
-                      "network": "tcp,udp"})
-    elif adopted and routing.get("mode") == "keep":
-        pass  # the adopted config's own default (its first outbound) stays
-    else:
-        rules.append({"type": "field", "outboundTag": ob.TAG_DIRECT, "network": "tcp,udp"})
+def remove_matcher(cfg: dict, tag: str, item: str) -> bool:
+    kind, value = split_matcher(item)
+    rules = xc.rules(cfg)
+    marks = template_marks(rules)
+    for r in [r for i, r in enumerate(rules) if i not in marks]:
+        if _simple(r, tag, kind) and value in r[kind]:
+            r[kind].remove(value)
+            if not r[kind]:
+                rules.remove(r)
+            return True
+    return False
 
-    if adopted:
-        out = dict(base)
-        if rules or "rules" in base:
-            out["rules"] = rules
-        return out
-    return {"domainStrategy": "IPIfNonMatch", "rules": rules}
+
+def matchers_for(cfg: dict, tag: str) -> list[str]:
+    """Everything plain rules send to `tag` (template rules not counted)."""
+    out: list[str] = []
+    rules = xc.rules_view(cfg)
+    marks = template_marks(rules)
+    for i, r in enumerate(rules):
+        if i in marks:
+            continue
+        for kind in ("domain", "ip"):
+            if _simple(r, tag, kind):
+                out += [m for m in r[kind] if m not in out]
+    return out

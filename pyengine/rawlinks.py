@@ -1,10 +1,10 @@
-"""Client share links for the inbounds of an adopted Xray config.
+"""Client share links read off the inbounds in config.json.
 
-xvei did not create these inbounds, so the link is read off the inbound as it
-is: its clients, transport and security. An inbound that only listens on a
-unix socket or on localhost is reached through the TLS fallbacks of another
-inbound (the usual "WS behind VLESS TLS on :443"); the link then takes the
-port and TLS of that inbound.
+The link comes from the inbound as it is: its clients, transport and
+security - whoever created it, xvei or a hand edit. An inbound that only
+listens on a unix socket or on localhost is reached through the TLS
+fallbacks of another inbound (the usual "WS behind VLESS TLS on :443"); the
+link then takes the port and TLS of that inbound.
 """
 from __future__ import annotations
 
@@ -12,21 +12,22 @@ import base64
 import json
 from urllib.parse import quote, urlencode
 
-import state as st
-
-_LOCAL = ("127.0.0.1", "::1", "localhost")
+import xrayconf as xc
 
 
-def _public_host(data: dict) -> str:
-    return data.get("server_ip") or data.get("domain") or "SERVER_IP"
+def host_for(data: dict, *, by_ip: bool = False) -> str:
+    """Where clients connect: the domain, or the IP (REALITY has no cert)."""
+    if by_ip or not data.get("domain"):
+        return data.get("server_ip") or data.get("domain") or "SERVER_IP"
+    return data["domain"]
 
 
-def _carrier(data: dict, ib: dict) -> tuple[dict, dict] | None:
+def _carrier(cfg: dict, ib: dict) -> tuple[dict, dict] | None:
     """The inbound (and its fallback entry) that hands traffic to `ib`."""
     targets = {str(ib.get("listen") or ""), str(ib.get("port") or "")} - {""}
-    if ib.get("listen") in _LOCAL and ib.get("port"):
+    if ib.get("listen") in xc.LOCAL_LISTENS and ib.get("port"):
         targets.add(f"{ib['listen']}:{ib['port']}")
-    for x in st.base_inbounds(data):
+    for x in xc.inbounds(cfg):
         if x is ib:
             continue
         for fb in (x.get("settings") or {}).get("fallbacks") or []:
@@ -35,20 +36,19 @@ def _carrier(data: dict, ib: dict) -> tuple[dict, dict] | None:
     return None
 
 
-def _reachable(data: dict, ib: dict) -> tuple[int, dict] | str:
-    """(public port, stream settings that do the TLS) or why there is no link."""
-    listen = str(ib.get("listen") or "")
-    ss = ib.get("streamSettings") or {}
-    if not listen.startswith(("@", "/")) and listen not in _LOCAL and ib.get("port"):
-        return int(ib["port"]), ss
-    carried = _carrier(data, ib)
+def _reachable(cfg: dict, ib: dict) -> tuple[int, dict, bool] | str:
+    """(public port, stream settings that do the TLS, carried by a fallback)
+    or why there is no link."""
+    if xc.is_public(ib):
+        return xc.port_of(ib), ib.get("streamSettings") or {}, False
+    carried = _carrier(cfg, ib)
     if not carried:
         return "local only"
-    outer, _fb = carried
+    outer = carried[0]
     outer_ss = outer.get("streamSettings") or {}
-    if outer_ss.get("security") not in ("tls", "reality"):
+    if outer_ss.get("security") not in ("tls", "reality") or xc.port_of(outer) is None:
         return "local only"
-    return int(outer["port"]), outer_ss
+    return xc.port_of(outer), outer_ss, True
 
 
 def _tls_params(data: dict, sec_ss: dict) -> dict | None:
@@ -56,12 +56,8 @@ def _tls_params(data: dict, sec_ss: dict) -> dict | None:
     sec = sec_ss.get("security") or "none"
     if sec == "tls":
         tls = sec_ss.get("tlsSettings") or {}
-        sni = tls.get("serverName") or data.get("domain") or ""
-        q = {"security": "tls", "sni": sni, "fp": "chrome"}
-        alpn = tls.get("alpn")
-        if alpn:
-            q["alpn"] = ",".join(alpn)
-        return q
+        return {"security": "tls", "sni": tls.get("serverName") or data.get("domain") or "",
+                "fp": "chrome"}
     if sec == "reality":
         rs = sec_ss.get("realitySettings") or {}
         pbk = x25519_public(rs.get("privateKey") or "")
@@ -73,60 +69,67 @@ def _tls_params(data: dict, sec_ss: dict) -> dict | None:
     return {"security": "none"}
 
 
-def _transport_params(data: dict, ss: dict, sni: str) -> dict:
+def _transport_params(ss: dict, host: str) -> dict:
+    """`host`: the Host header when the inbound does not set one (the domain
+    behind TLS; none with REALITY, whose SNI is someone else's site)."""
     net = ss.get("network") or "tcp"
-    host = data.get("domain") or sni
-    q: dict = {"type": {"splithttp": "xhttp"}.get(net, net)}
+    q: dict = {"type": {"splithttp": "xhttp", "raw": "tcp"}.get(net, net)}
     if net == "ws":
         ws = ss.get("wsSettings") or {}
-        q["path"] = ws.get("path") or "/"
         q["host"] = ws.get("host") or (ws.get("headers") or {}).get("Host") or host
+        q["path"] = ws.get("path") or "/"
     elif net in ("xhttp", "splithttp"):
         xh = ss.get("xhttpSettings") or ss.get("splithttpSettings") or {}
-        q["path"] = xh.get("path") or "/"
         q["host"] = xh.get("host") or host
+        q["path"] = xh.get("path") or "/"
         q["mode"] = xh.get("mode") or "auto"
     elif net == "httpupgrade":
         hu = ss.get("httpupgradeSettings") or {}
-        q["path"] = hu.get("path") or "/"
         q["host"] = hu.get("host") or host
+        q["path"] = hu.get("path") or "/"
     elif net == "grpc":
         q["serviceName"] = (ss.get("grpcSettings") or {}).get("serviceName") or ""
         q["mode"] = "gun"
     return q
 
 
-def _label(ib: dict, client: dict) -> str:
-    who = client.get("email")
-    return quote(f"{ib['tag']}-{who}" if who else ib["tag"])
+def _labeller(data: dict, ib: dict, clients: list[dict]):
+    """One client: "tag@host"; several: "tag-email" so they can be told apart."""
+    def label(c: dict) -> str:
+        if len(clients) > 1 and c.get("email"):
+            return f"{ib['tag']}-{c['email']}"
+        return f"{ib['tag']}@{data.get('domain') or data.get('server_ip') or 'xvei'}"
+    return label
 
 
-def inbound_links(data: dict, ib: dict) -> tuple[list[tuple[str, str]], str]:
-    """[(client name, link)] for one inbound of the adopted config, and a note
-    when there are none."""
+def inbound_links(data: dict, cfg: dict, ib: dict) -> tuple[list[tuple[str, str]], str]:
+    """[(client name, link)] for one inbound, and a note when there are none."""
     proto = ib.get("protocol")
     settings = ib.get("settings") or {}
     if proto in ("socks", "http"):
         return _proxy_links(data, ib, proto, settings)
     if proto not in ("vless", "vmess", "trojan", "shadowsocks"):
         return [], f"{proto}: no share link format"
-    where = _reachable(data, ib)
+    where = _reachable(cfg, ib)
     if isinstance(where, str):
         return [], where
-    port, sec_ss = where
+    port, sec_ss, carried = where
     tls = _tls_params(data, sec_ss)
     if tls is None:
         return [], "REALITY keys / server names missing"
     ss = ib.get("streamSettings") or {}
-    host = (data.get("domain") if tls["security"] == "tls" and data.get("domain")
-            else _public_host(data))
-    q_base = {**tls, **_transport_params(data, ss, tls.get("sni", ""))}
-    if "alpn" in q_base and q_base["type"] in ("ws", "httpupgrade"):
-        q_base["alpn"] = "http/1.1"  # both need an HTTP/1.1 upgrade
+    host = host_for(data, by_ip=tls["security"] == "reality")
+    default_host = (data.get("domain") or tls.get("sni", "")) if tls["security"] == "tls" else ""
+    q_base = {**tls, **_transport_params(ss, default_host)}
+    q_base = {k: v for k, v in q_base.items() if v != "" or k == "path"}
+    if carried and q_base["type"] in ("ws", "httpupgrade", "tcp"):
+        # behind the :443 fallbacks only HTTP/1.1 reaches them (h2 goes to the site)
+        q_base["alpn"] = "http/1.1"
 
     out: list[tuple[str, str]] = []
     if proto == "shadowsocks":
         clients = settings.get("clients") or [settings]
+        label = _labeller(data, ib, clients)
         for c in clients:
             method = c.get("method") or settings.get("method")
             pw = c.get("password")
@@ -135,17 +138,20 @@ def inbound_links(data: dict, ib: dict) -> tuple[list[tuple[str, str]], str]:
             if method.startswith("2022-") and c is not settings and settings.get("password"):
                 pw = f"{settings['password']}:{pw}"
             info = base64.urlsafe_b64encode(f"{method}:{pw}".encode()).decode().rstrip("=")
-            out.append((c.get("email") or "", f"ss://{info}@{host}:{port}#{_label(ib, c)}"))
+            out.append((c.get("email") or "", f"ss://{info}@{host}:{port}#{quote(label(c))}"))
         return out, "" if out else "no clients"
 
-    for c in settings.get("clients") or []:
+    clients = [c for c in settings.get("clients") or [] if isinstance(c, dict)]
+    label = _labeller(data, ib, clients)
+    for c in clients:
         if proto == "vmess":
-            j = {"v": "2", "ps": f"{ib['tag']}-{c.get('email')}" if c.get("email") else ib["tag"],
-                 "add": host, "port": str(port), "id": c.get("id", ""), "aid": "0",
-                 "scy": "auto", "net": q_base["type"], "type": "none",
+            j = {"v": "2", "ps": label(c), "add": host, "port": str(port), "id": c.get("id", ""),
+                 "aid": "0", "scy": "auto", "net": q_base["type"], "type": "none",
                  "host": q_base.get("host", ""), "path": q_base.get("path", ""),
                  "tls": "" if tls["security"] == "none" else tls["security"],
                  "sni": tls.get("sni", ""), "fp": "chrome"}
+            if q_base.get("alpn"):
+                j["alpn"] = q_base["alpn"]
             out.append((c.get("email") or "",
                         "vmess://" + base64.b64encode(json.dumps(j).encode()).decode()))
             continue
@@ -158,16 +164,15 @@ def inbound_links(data: dict, ib: dict) -> tuple[list[tuple[str, str]], str]:
         else:
             cred = quote(c.get("password", ""), safe="")
         out.append((c.get("email") or "",
-                    f"{proto}://{cred}@{host}:{port}?{urlencode(q)}#{_label(ib, c)}"))
+                    f"{proto}://{cred}@{host}:{port}?{urlencode(q)}#{quote(label(c))}"))
     return out, "" if out else "no clients"
 
 
 def _proxy_links(data: dict, ib: dict, proto: str,
                  settings: dict) -> tuple[list[tuple[str, str]], str]:
-    listen = str(ib.get("listen") or "0.0.0.0")
-    if listen in _LOCAL or listen.startswith(("@", "/")) or not ib.get("port"):
+    if not xc.is_public(ib):
         return [], "local only"
-    host, port = _public_host(data), ib["port"]
+    host, port = host_for(data, by_ip=True), xc.port_of(ib)
     accounts = settings.get("accounts") or [{}]
     out: list[tuple[str, str]] = []
     for a in accounts:

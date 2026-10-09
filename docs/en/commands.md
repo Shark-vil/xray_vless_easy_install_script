@@ -8,15 +8,16 @@ The script is called as `xvei`:
 xvei                     interactive menu (or offer to install)
 xvei install             guided first-time setup
 xvei edit                interactive menu
-xvei apply               regenerate + validate + restart from the current state
+xvei apply               re-check what the config needs (certificate, services) and restart
 
 xvei add-inbound  <type> [--port N] [--dest SNI] [--method M]
 xvei remove-inbound <tag>
 xvei add-outbound   <warp|tor|LINK ...> [--tag T]
 xvei remove-outbound <warp|tor|TAG>
-xvei rule <add|remove|list> <block|direct|warp|tor|TAG> [matcher ...]
-xvei rule list           all rules; the adopted config's ones are numbered
-xvei rule delete <N>     remove rule N of the adopted config
+xvei rule add|remove <OUTBOUND|warp|tor> <matcher ...>
+                         send domains / IPs to an outbound (or stop)
+xvei rule list [OUTBOUND] all rules, numbered (or what goes to one outbound)
+xvei rule delete <N>     delete rule N
 xvei template <russia|iran|china> --exit <warp|tor|block|TAG> [--tunnel <warp|tor|TAG> | --direct]
 xvei template popular --tunnel <warp|tor|TAG>
 xvei template none [--tunnel <warp|tor|TAG> | --direct | --keep]
@@ -52,10 +53,10 @@ xvei site proxy gnu                        # reverse-proxy www.gnu.org
 
 ## How changes are applied
 
-All configuration lives in one state file
-(`/usr/local/etc/xray/xvei-state.json`); a small Python engine (standard library
-only, no `pip` packages) regenerates `config.json`, validates it with
-`xray -test`, and only then swaps it in and restarts the services.
-
-Every command that changes the state re-runs generate → `xray -test` → swap →
-restart automatically. If validation fails, the live config is left untouched.
+`/usr/local/etc/xray/config.json` is the source of truth and is read on every
+run - edits made in it by hand show up at once. A command that changes
+something works on a copy of it; a small Python engine (standard library only,
+no `pip` packages) writes the copy, `xray -test` checks it, and only then it is
+swapped in and the services restarted. If the check fails, the live config is
+left untouched. `xvei-state.json` next to it keeps only what `config.json`
+cannot hold (domain, certificate, site, Hysteria2 / Turnable settings).

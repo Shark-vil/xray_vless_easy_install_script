@@ -1,8 +1,10 @@
-"""Turn state['inbounds'] entries into Xray inbound objects."""
-from __future__ import annotations
+"""Build the Xray inbound objects xvei adds to config.json.
 
-import state as st
-import util
+`ib` is the record editor.add_inbound puts together (tag, uuid, paths, keys...);
+`data` is the xvei state (for the certificate). Once written, the object in
+config.json is what counts - nothing here is consulted again.
+"""
+from __future__ import annotations
 
 WS_SOCKET = "@vless-ws"
 XHTTP_SOCKET = "@vless-xhttp"
@@ -10,6 +12,15 @@ TROJAN_TCP_SOCKET = "@trojan-tcp"
 TROJAN_WS_SOCKET = "@trojan-ws"
 VMESS_WS_SOCKET = "@vmess-ws"
 SNIFF = {"enabled": True, "destOverride": ["http", "tls", "quic"], "routeOnly": False}
+
+# the local socket each fallback-carried type listens on by default
+SOCKETS = {
+    "vless-ws": WS_SOCKET,
+    "vless-xhttp-tls": XHTTP_SOCKET,
+    "trojan-tcp": TROJAN_TCP_SOCKET,
+    "trojan-ws": TROJAN_WS_SOCKET,
+    "vmess-ws": VMESS_WS_SOCKET,
+}
 
 
 def _clients(ib: dict, *, flow: str | None = None) -> list[dict]:
@@ -23,24 +34,13 @@ def _clients(ib: dict, *, flow: str | None = None) -> list[dict]:
 
 def _vless_tls(ib: dict, data: dict) -> dict:
     cert = data["cert"]
-    fallbacks: list[dict] = []
-    xhttp = st.get_type(data, "vless-xhttp-tls")
-    if xhttp and xhttp.get("standalone") is not True:
-        fallbacks.append({"path": "/" + xhttp["xhttp_path"], "dest": XHTTP_SOCKET, "xver": 0})
-    for itype, sock in (("vless-ws", WS_SOCKET), ("trojan-ws", TROJAN_WS_SOCKET),
-                        ("vmess-ws", VMESS_WS_SOCKET)):
-        ws = st.get_type(data, itype)
-        if ws:
-            fallbacks.append({"path": "/" + ws["ws_path"], "dest": sock, "xver": 0})
-    # h2c goes to its own nginx listener; see pyengine/sites.py for why.
-    fallbacks.append({"alpn": "h2", "dest": "8081", "xver": 0})
-    # Anything else that is not VLESS: Trojan when enabled (it falls back to the
-    # site itself), otherwise straight to the site. Trojan clients must
-    # therefore negotiate http/1.1 - an h2 one would land on the site.
-    if st.get_type(data, "trojan-tcp"):
-        fallbacks.append({"dest": TROJAN_TCP_SOCKET, "xver": 0})
-    else:
-        fallbacks.append({"dest": "8080", "xver": 0})
+    # The inbounds added later behind this one get a "path" entry each in
+    # front (editor.add_inbound). h2c goes to its own nginx listener; see
+    # pyengine/sites.py for why. Anything else that is not VLESS goes to the
+    # site - or to Trojan once it is added, which then falls back to the site
+    # itself (so Trojan clients must negotiate http/1.1).
+    fallbacks: list[dict] = [{"alpn": "h2", "dest": "8081", "xver": 0},
+                             {"dest": "8080", "xver": 0}]
     return {
         "listen": "0.0.0.0",
         "port": ib.get("port", 443),
@@ -243,17 +243,9 @@ _BUILDERS = {
 }
 
 
-def build(data: dict) -> list[dict]:
-    out: list[dict] = []
-    # deterministic, and vless-tls first so it owns :443
-    order = {t: i for i, t in enumerate(st.INBOUND_TYPES)}
-    for ib in sorted(data["inbounds"], key=lambda x: order.get(x["type"], 99)):
-        builder = _BUILDERS.get(ib["type"])
-        if builder is None:
-            util.warn(f"unknown inbound type {ib['type']!r}, skipped")
-            continue
-        out.append(builder(ib, data))
-    return out
+def build(ib: dict, data: dict) -> dict:
+    """The Xray inbound object for a new inbound record."""
+    return _BUILDERS[ib["type"]](ib, data)
 
 
 # ---- defaults for new inbounds (used by editor) --------------------------

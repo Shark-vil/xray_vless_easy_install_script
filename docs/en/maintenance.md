@@ -81,8 +81,8 @@ clone is not deleted; remove its folder yourself.
 
 | path | contents |
 |---|---|
-| `/usr/local/etc/xray/xvei-state.json` | source of truth (root, `0600`) |
-| `/usr/local/etc/xray/config.json` | generated Xray config (`.bak` kept) |
+| `/usr/local/etc/xray/config.json` | the Xray config, source of truth; edit by hand or through xvei (`.bak` kept) |
+| `/usr/local/etc/xray/xvei-state.json` | what config.json cannot hold: domain, certificate, site, Hysteria2 / Turnable (root, `0600`) |
 | `/usr/local/etc/xray/config.json.xvei-orig` | adopted setups: the config as it was before xvei |
 | `/etc/hysteria/config.yaml` | generated Hysteria2 config (+ `cert.crt`/`cert.key`) |
 | `/etc/nginx/sites-enabled/xvei.conf` (Debian/Ubuntu) or `/etc/nginx/conf.d/xvei.conf` (CentOS), `/var/www/xvei-site` | fallback vhost + camouflage site |

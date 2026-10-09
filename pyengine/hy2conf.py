@@ -8,8 +8,9 @@ def _yaml(lines: list[str]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def build(data: dict) -> str | None:
-    ib = st.get_type(data, "hysteria2")
+def build(data: dict, cfg: dict) -> str | None:
+    """The config for xvei's Hysteria2, while its SOCKS inbound is in config.json."""
+    ib = st.service(data, cfg, "hysteria2")
     if not ib:
         return None
     port = ib.get("port", 443)

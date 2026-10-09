@@ -2,8 +2,8 @@
 # Adopting an Xray setup that existed before xvei, and ownership markers.
 #
 # Adopting changes nothing: no packages besides Python, no config rewrite, no
-# restart. The existing config.json becomes the "base" in the state; later
-# edits made through xvei are merged into it (see pyengine/xrayconf.py).
+# restart. config.json stays the source of truth; xvei reads it on every run
+# and its changes go straight into it (see pyengine/xrayconf.py).
 
 XVEI_MARKERS="/var/lib/xvei/managed"
 
@@ -45,15 +45,15 @@ adopt_existing() {
         pkg_update
         ensure_python
     fi
-    py adopt --config "$XRAY_CONFIG" || die "could not read $XRAY_CONFIG; nothing was changed"
+    py adopt || die "could not read $XRAY_CONFIG; nothing was changed"
     py set-meta --server-ip "$(server_ip)" >/dev/null 2>&1 || true
     [ -e /usr/local/bin/xvei ] || ln -sf "$XVEI_ROOT/xvei.sh" /usr/local/bin/xvei
     echo
     py summary
     echo
     ok "adopted: nothing was installed, rewritten or restarted"
-    log "edits made through xvei are merged into this config; before the first"
-    log "write the original is saved as $XRAY_CONFIG.xvei-orig"
+    log "xvei works on this config.json as it is, hand edits included; before"
+    log "its first change the original is saved as $XRAY_CONFIG.xvei-orig"
 }
 
 # `xvei remove --all` on an adopted setup: undo only what xvei added (the xvei

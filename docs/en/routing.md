@@ -20,9 +20,10 @@ Not supported: `hysteria2://`; links with `allowInsecure=1` (current Xray
 removed that option); Shadowsocks stream ciphers (`aes-256-cfb` etc.) and
 plugins; legacy VMess with `alterId > 0`.
 
-An added outbound gets a tag (`vless1`, `socks1`, … or `--tag`). The tag is
-used as a rule bucket, as the template tunnel (`--tunnel <tag>`) and as the
-in-country exit of a country template (`--exit <tag>`). The `#name` part of a
+An added outbound gets a tag (`vless1`, `socks1`, … or `--tag`). Like any
+outbound in `config.json`, it can be the target of rules (`xvei rule add <tag>
+…`), the template tunnel (`--tunnel <tag>`) and the in-country exit of a
+country template (`--exit <tag>`). The `#name` part of a
 link is shown as a label only.
 
 Add an outbound (single quotes are required: the link contains `&`):
@@ -79,6 +80,23 @@ client device does.
   essentially any geosite.dat build) go direct for speed; everything else
   requires `--tunnel warp|tor|<tag>`.
 
-## Editable rule buckets
-`block`, `direct`, `warp`, `tor` and one per added outbound (its tag) — add/remove matchers
-(`geosite:…`, `geoip:…`, `domain:…`, `1.2.3.0/24`, `regexp:…`) live.
+## Your own rules
+
+Send domains / IPs to any outbound in `config.json` — `direct`, `block`,
+`warp` / `tor` (xvei sets them up when needed) or any tag:
+
+```bash
+xvei rule add direct geosite:apple domain:example.com
+xvei rule add warp geosite:openai
+xvei rule add gemini_proxy geosite:google-gemini
+xvei rule remove warp geosite:openai
+```
+
+Matchers: `geosite:…`, `geoip:…`, `domain:…`, `full:…`, `regexp:…`,
+`keyword:…`, an IP or a CIDR (`1.2.3.0/24`); a bare name becomes `domain:…`.
+They are added to a rule that already sends such matchers to that outbound, or
+to a new one at the top, so they are checked before the template.
+
+`xvei rule list` shows every rule in `config.json` with its number, including
+the ones written by hand; `xvei rule delete <N>` deletes one. Menu:
+`xvei` → `3) Routing rules`.

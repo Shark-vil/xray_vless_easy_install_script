@@ -15,8 +15,9 @@ PROVIDER_ID = "xvei"
 ROUTE_ID = "xray"
 
 
-def build(data: dict) -> str | None:
-    ib = st.get_type(data, "turnable")
+def build(data: dict, cfg: dict) -> str | None:
+    """The config for xvei's Turnable, while its VLESS inbound is in config.json."""
+    ib = st.service(data, cfg, "turnable")
     if not ib or not ib.get("priv_key"):
         return None  # keys come from `turnable config keygen` (lib/turnable.sh)
     cfg = {

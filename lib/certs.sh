@@ -12,6 +12,8 @@ cert_issue() {
 
     if [ -e "$fullchain" ] && [ -e "$privkey" ]; then
         log "certificate for $domain already present"
+        py set-meta --cert-mode letsencrypt \
+            --cert-fullchain "$fullchain" --cert-privkey "$privkey" >/dev/null
     else
         ensure_bin certbot
         log "requesting Let's Encrypt certificate for $domain"
