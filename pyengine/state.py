@@ -157,6 +157,14 @@ def base_inbounds(data: dict) -> list[dict]:
     return list((data.get("base") or {}).get("inbounds") or []) if data.get("adopted") else []
 
 
+def describe_raw_inbound(ib: dict) -> str:
+    """One-line description of an inbound as it is in an Xray config."""
+    ss = ib.get("streamSettings") or {}
+    net = f" {ss.get('network', 'tcp')}/{ss.get('security', 'none')}" if ss else ""
+    where = ib.get("port") or ib.get("listen") or "?"
+    return f"{ib.get('tag') or '(no tag)'} ({ib.get('protocol', '?')} :{where}{net})"
+
+
 def base_outbounds(data: dict) -> list[dict]:
     return list((data.get("base") or {}).get("outbounds") or []) if data.get("adopted") else []
 

@@ -304,13 +304,6 @@ def cmd_ports(_a) -> int:
     return 0
 
 
-def _describe_inbound(ib: dict) -> str:
-    ss = ib.get("streamSettings") or {}
-    net = f" {ss.get('network', 'tcp')}/{ss.get('security', 'none')}" if ss else ""
-    where = ib.get("port") or ib.get("listen") or "?"
-    return f"{ib.get('tag') or '(no tag)'} ({ib.get('protocol', '?')} :{where}{net})"
-
-
 def cmd_summary(_a) -> int:
     data = _load()
     r = data["routing"]
@@ -319,7 +312,7 @@ def cmd_summary(_a) -> int:
         print("mode        : adopted existing Xray config (kept as is, xvei parts merged in)")
         print("existing    :")
         for ib in base.get("inbounds") or []:
-            print(f"  - inbound  {_describe_inbound(ib)}")
+            print(f"  - inbound  {st.describe_raw_inbound(ib)}")
         for o in base.get("outbounds") or []:
             print(f"  - outbound {o.get('tag') or '(no tag)'} ({o.get('protocol', '?')})")
         print(f"  - {len((base.get('routing') or {}).get('rules') or [])} routing rules")
@@ -333,7 +326,7 @@ def cmd_summary(_a) -> int:
     for c in data["custom_outbounds"]:
         name = f"  ({c['name']})" if c.get("name") else ""
         print(f"  - {c['tag']}: {proxylinks.describe(c['outbound'])}{name}")
-    print("inbounds    :")
+    print("inbounds    :" + ("" if data["inbounds"] else " (none added by xvei)"))
     for ib in data["inbounds"]:
         print(f"  - {ib['tag']} ({ib['type']})")
     return 0

@@ -368,6 +368,12 @@ def menu_site(data: dict) -> bool:
 # ---- interactive menus (driven from lib/menu.sh) -----------------------
 
 def _list_inbounds(data: dict) -> None:
+    base = st.base_inbounds(data)
+    if base:
+        print("  existing (adopted config, not managed by xvei):")
+        for ib in base:
+            print(f"  = {st.describe_raw_inbound(ib)}")
+        print("  added by xvei:")
     if not data["inbounds"]:
         print("  (none)")
     for ib in data["inbounds"]:
@@ -405,6 +411,9 @@ def menu_inbounds(data: dict) -> bool:
                 return True
         elif act == "del":
             if not data["inbounds"]:
+                util.warn("no inbounds added by xvei to remove"
+                          + (" (existing ones are edited in config.json directly)"
+                             if st.base_inbounds(data) else ""))
                 continue
             tag = util.choose("Remove which", [(x["tag"], x["tag"]) for x in data["inbounds"]])
             if remove_inbound(data, tag):
