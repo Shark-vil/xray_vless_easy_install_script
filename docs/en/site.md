@@ -1,6 +1,6 @@
-# Camouflage site &nbsp;·&nbsp; [🇷🇺 RU](../ru/site.md)
+# Camouflage site
 
-[← README](../../README.md)
+[🇷🇺 Русская версия](../ru/site.md) · [← Home](index.md)
 
 What a normal browser sees when it opens the domain directly (the nginx
 fallback for `vless-tls` / `vless-xhttp-tls`). Change any time with `xvei site`:

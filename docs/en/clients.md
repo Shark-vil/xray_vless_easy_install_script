@@ -1,6 +1,6 @@
-# Clients &nbsp;·&nbsp; [🇷🇺 RU](../ru/clients.md)
+# Clients
 
-[← README](../../README.md)
+[🇷🇺 Русская версия](../ru/clients.md) · [← Home](index.md)
 
 [v2rayNG](https://github.com/2dust/v2rayNG/releases/latest),
 [NekoBox / nekoray](https://github.com/MatsuriDayo/nekoray/releases/latest),
@@ -30,3 +30,24 @@ direct rules on the client by hand, for example for Russia:
 
 **IP:** `geoip:private`, `geoip:ru`
 **Domains:** `geosite:private`, `geosite:category-ru`, `geosite:category-gov-ru`
+
+### NekoBox step by step
+
+The screenshots show NekoBox with the Russian interface.
+
+1. Open **Settings → Routing settings**.
+
+   ![Routing settings](../img/nekoray_route_1.png)
+
+2. Open the **Basic routes** tab.
+
+   ![Basic routes](../img/nekoray_route_2.png)
+
+3. In the **Direct** column put the IP and domain lists from above (more
+   services of your country can be added the same way).
+
+   ![Direct lists](../img/nekoray_route_3.png)
+
+4. Keep **Default outbound** set to `proxy` and press **OK**.
+
+   ![Default outbound](../img/nekoray_route_4.png)

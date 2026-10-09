@@ -1,0 +1,122 @@
+site_name: XVEI
+site_description: Xray (+ Hysteria2) easy install & live editor
+site_url: https://shark-vil.github.io/xray_vless_easy_install_script/
+repo_url: https://github.com/Shark-vil/xray_vless_easy_install_script
+repo_name: Shark-vil/xray_vless_easy_install_script
+edit_uri: edit/master/docs/
+
+docs_dir: docs
+hooks:
+  - mkdocs_hooks.py
+# RU.md is the GitHub entry page for the Russian docs (the site has its
+# own home pages); requirements.txt only pins the build tools
+exclude_docs: |
+  /RU.md
+  /requirements.txt
+
+theme:
+  name: material
+  language: en
+  icon:
+    logo: material/router-network
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+  # navigation.instant is left out: with the i18n plugin it breaks the
+  # language switcher (switching language after an instant page change lands
+  # on the wrong page). navigation.indexes is left out: it does not work
+  # together with toc.integrate.
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.tracking
+    - navigation.top
+    - navigation.footer
+    - toc.integrate
+    - toc.follow
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+
+plugins:
+  - search
+  # GitHub-style "> [!WARNING]" blocks -> admonitions, so the same files
+  # render on GitHub and on the site
+  - callouts
+  - i18n:
+      docs_structure: folder
+      reconfigure_material: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: ru
+          name: Русский
+          build: true
+          nav_translations:
+            Home: Главная
+            Guide: Руководство
+            Reference: Справочник
+            Getting started: Первая установка
+            Installation: Установка
+            Inbounds: Inbounds
+            Turnable: Turnable
+            Outbounds and routing: Outbounds и маршрутизация
+            Camouflage site: Сайт-прикрытие
+            Commands: Команды
+            How it works: Как это работает
+            Updates, firewall, files: Обновления, файрвол, файлы
+            Troubleshooting: Решение проблем
+            Clients: Клиенты
+
+# top-level entries become the tabs
+nav:
+  - Home: index.md
+  - Guide:
+      - Getting started: getting-started.md
+      - Installation: install.md
+      - Inbounds: inbounds.md
+      - Turnable: turnable.md
+      - Outbounds and routing: routing.md
+      - Camouflage site: site.md
+      - Clients: clients.md
+  - Reference:
+      - Commands: commands.md
+      - How it works: architecture.md
+      - Updates, firewall, files: maintenance.md
+      - Troubleshooting: troubleshooting.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+      # keep Cyrillic in anchors, like GitHub does
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format

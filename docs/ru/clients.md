@@ -1,6 +1,6 @@
-# Клиенты &nbsp;·&nbsp; [🇬🇧 EN](../en/clients.md)
+# Клиенты
 
-[← Документация](../RU.md)
+[🇬🇧 English version](../en/clients.md) · [← Главная](index.md)
 
 [v2rayNG](https://github.com/2dust/v2rayNG/releases/latest),
 [NekoBox / nekoray](https://github.com/MatsuriDayo/nekoray/releases/latest),
@@ -24,3 +24,22 @@ VPN) — с сервером он не связан и не палит его IP
 
 **IP:** `geoip:private`, `geoip:ru`
 **Домены:** `geosite:private`, `geosite:category-ru`, `geosite:category-gov-ru`
+
+### NekoBox по шагам
+
+1. Откройте **Настройки → Настройки маршрутов**.
+
+   ![Настройки маршрутов](../img/nekoray_route_1.png)
+
+2. Перейдите на вкладку **Базовые маршруты**.
+
+   ![Базовые маршруты](../img/nekoray_route_2.png)
+
+3. В колонку **Напрямую** впишите списки IP и доменов из примера выше (так же
+   можно добавить и другие сервисы своей страны).
+
+   ![Списки «Напрямую»](../img/nekoray_route_3.png)
+
+4. Оставьте **Outbound по-умолчанию** = `proxy` и нажмите **OK**.
+
+   ![Outbound по умолчанию](../img/nekoray_route_4.png)

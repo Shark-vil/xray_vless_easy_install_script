@@ -1,6 +1,6 @@
-# Outbounds и маршрутизация &nbsp;·&nbsp; [🇬🇧 EN](../en/routing.md)
+# Outbounds и маршрутизация
 
-[← Документация](../RU.md)
+[🇬🇧 English version](../en/routing.md) · [← Главная](index.md)
 
 ## Outbounds / туннели
 `direct`, `block`, опционально **WARP** (Cloudflare, docker) или **TOR** —

@@ -1,6 +1,6 @@
-# Outbounds and routing &nbsp;·&nbsp; [🇷🇺 RU](../ru/routing.md)
+# Outbounds and routing
 
-[← README](../../README.md)
+[🇷🇺 Русская версия](../ru/routing.md) · [← Home](index.md)
 
 ## Outbounds / tunnels
 `direct`, `block`, optionally **WARP** (Cloudflare, docker) or **TOR** as a

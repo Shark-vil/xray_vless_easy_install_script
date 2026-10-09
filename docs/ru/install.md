@@ -1,6 +1,6 @@
-# Установка &nbsp;·&nbsp; [🇬🇧 EN](../en/install.md)
+# Установка
 
-[← Документация](../RU.md)
+[🇬🇧 English version](../en/install.md) · [← Главная](index.md)
 
 ## Поддерживаемые системы
 

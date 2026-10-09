@@ -1,6 +1,6 @@
-# Commands &nbsp;·&nbsp; [🇷🇺 RU](../ru/commands.md)
+# Commands
 
-[← README](../../README.md)
+[🇷🇺 Русская версия](../ru/commands.md) · [← Home](index.md)
 
 The script is called as `xvei`:
 

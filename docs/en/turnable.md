@@ -1,6 +1,6 @@
-# Turnable (VK calls) — unstable, not anonymous &nbsp;·&nbsp; [🇷🇺 RU](../ru/turnable.md)
+# Turnable (VK calls) — unstable, not anonymous
 
-[← README](../../README.md)
+[🇷🇺 Русская версия](../ru/turnable.md) · [← Home](index.md)
 
 > [!WARNING]
 > **This method reveals the server's IP address.** Traffic is relayed by the

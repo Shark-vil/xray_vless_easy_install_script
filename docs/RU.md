@@ -2,6 +2,8 @@
 
 ## [Documentation in English](/README.md)
 
+📖 **Сайт документации: <https://shark-vil.github.io/xray_vless_easy_install_script/ru/>**
+
 XVEI ставит и настраивает [Xray-core](https://github.com/XTLS/Xray-install)
 (и по желанию [Hysteria2](https://v2.hysteria.network/)), а затем позволяет
 менять конфигурацию **без переустановки** — inbounds, WARP / TOR и свои
@@ -61,13 +63,16 @@ xvei links
 
 | страница | содержание |
 |---|---|
+| [Первая установка](ru/getting-started.md) | первая установка по шагам, подключение клиента |
 | [Установка](ru/install.md) | поддерживаемые системы, способы установки, приём существующего Xray |
 | [Inbounds](ru/inbounds.md) | все типы inbounds, какой выбрать в 2026 |
 | [Turnable](ru/turnable.md) | ⚠️ туннель через звонки VK: нестабильно, **раскрывает IP сервера** |
 | [Outbounds и маршрутизация](ru/routing.md) | WARP / TOR, outbounds из ссылок, шаблоны, правила |
 | [Сайт-прикрытие](ru/site.md) | что видит браузер на домене |
 | [Команды](ru/commands.md) | полный список команд с примерами |
+| [Как это работает](ru/architecture.md) | компоненты, применение изменений, общий порт 443, порядок правил |
 | [Обновления, файрвол, файлы](ru/maintenance.md) | `check-updates`, файрвол, продление сертификата, где что лежит |
+| [Решение проблем](ru/troubleshooting.md) | логи, частые ошибки и что делать |
 | [Клиенты](ru/clients.md) | клиентские приложения, маршрутизация на клиенте |
 
 ## Клиенты

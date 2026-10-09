@@ -1,6 +1,6 @@
-# Команды &nbsp;·&nbsp; [🇬🇧 EN](../en/commands.md)
+# Команды
 
-[← Документация](../RU.md)
+[🇬🇧 English version](../en/commands.md) · [← Главная](index.md)
 
 Скрипт вызывается командой `xvei`:
 

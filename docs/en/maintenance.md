@@ -1,6 +1,6 @@
-# Updates, firewall, files &nbsp;·&nbsp; [🇷🇺 RU](../ru/maintenance.md)
+# Updates, firewall, files
 
-[← README](../../README.md)
+[🇷🇺 Русская версия](../ru/maintenance.md) · [← Home](index.md)
 
 ## Updates
 

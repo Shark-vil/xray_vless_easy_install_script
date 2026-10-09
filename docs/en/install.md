@@ -1,6 +1,6 @@
-# Installation &nbsp;·&nbsp; [🇷🇺 RU](../ru/install.md)
+# Installation
 
-[← README](../../README.md)
+[🇷🇺 Русская версия](../ru/install.md) · [← Home](index.md)
 
 ## Supported systems
 

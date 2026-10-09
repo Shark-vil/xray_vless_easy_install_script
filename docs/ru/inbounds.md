@@ -1,6 +1,6 @@
-# Inbounds &nbsp;·&nbsp; [🇬🇧 EN](../en/inbounds.md)
+# Inbounds
 
-[← Документация](../RU.md)
+[🇬🇧 English version](../en/inbounds.md) · [← Главная](index.md)
 
 | тип | описание |
 |---|---|

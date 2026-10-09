@@ -1,6 +1,6 @@
-# Inbounds &nbsp;·&nbsp; [🇷🇺 RU](../ru/inbounds.md)
+# Inbounds
 
-[← README](../../README.md)
+[🇷🇺 Русская версия](../ru/inbounds.md) · [← Home](index.md)
 
 | type | notes |
 |---|---|

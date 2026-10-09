@@ -1,6 +1,6 @@
-# Turnable (звонки VK) — нестабильно, не анонимно &nbsp;·&nbsp; [🇬🇧 EN](../en/turnable.md)
+# Turnable (звонки VK) — нестабильно, не анонимно
 
-[← Документация](../RU.md)
+[🇬🇧 English version](../en/turnable.md) · [← Главная](index.md)
 
 > [!WARNING]
 > **Этот способ раскрывает IP-адрес сервера.** Трафик идёт через TURN-серверы

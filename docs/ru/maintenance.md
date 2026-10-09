@@ -1,6 +1,6 @@
-# Обновления, файрвол, файлы &nbsp;·&nbsp; [🇬🇧 EN](../en/maintenance.md)
+# Обновления, файрвол, файлы
 
-[← Документация](../RU.md)
+[🇬🇧 English version](../en/maintenance.md) · [← Главная](index.md)
 
 ## Обновления
 
