@@ -18,12 +18,8 @@ menu_links() {
     echo
     local t; t="$(read_value "QR for which tag (empty to skip)")"
     [ -n "$t" ] || return 0
-    local link_file="$CLIENT_DIR/$t.link"
-    if [ -f "$link_file" ]; then
-        qrencode -t ANSIUTF8 "$(cat "$link_file")"
-    else
-        warn "no link file $link_file"
-    fi
+    local link; link="$(py link "$t")" || return 0
+    qrencode -t ANSIUTF8 "$link"
 }
 
 menu_status() {

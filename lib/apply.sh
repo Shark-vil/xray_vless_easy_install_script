@@ -89,10 +89,8 @@ apply_all() {
         *) nginx_teardown ;;
     esac
 
-    # 7. refresh client links/configs
-    mkdir -p "$CLIENT_DIR"
+    # 7. server IP for the client links (REALITY / no domain)
     py set-meta --server-ip "$(server_ip)" >/dev/null || true
-    py links >/dev/null || warn "client link generation reported an issue"
 
     ok "applied. Xray config: $XRAY_CONFIG"
 }

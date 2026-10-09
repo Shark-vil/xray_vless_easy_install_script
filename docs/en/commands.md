@@ -22,6 +22,7 @@ xvei site [list | auth | blank | 404 | <preset> | proxy <url|preset>]
 
 xvei links [tag]         print client share links
 xvei qr <tag>            QR code for one inbound
+xvei client-config <tag> full Xray client config (with routing rules)
 xvei status              services + active template
 xvei show-config [file]  print config.json readably (JSON5, comments kept)
 xvei firewall [status | open | setup]   see maintenance.md, "Firewall"

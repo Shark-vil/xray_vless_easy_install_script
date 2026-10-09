@@ -55,9 +55,8 @@ xvei **никогда сам не включает, не сбрасывает и
 **Адаптированная установка** (Xray стоял до xvei): `xvei remove` (меню:
 `11) Uninstall xvei`) Xray не трогает. Он удаляет только то, что xvei поставил
 сам (WARP, TOR, Hysteria2, Turnable, свой vhost nginx, хуки certbot),
-спрашивает, вернуть ли `config.json.xvei-orig`, и удаляет state xvei и
-`~/xray_eis`. Xray, его сервис и сертификаты остаются. Затем удалите команду и
-код:
+спрашивает, вернуть ли `config.json.xvei-orig`, и удаляет state xvei. Xray,
+его сервис и сертификаты остаются. Затем удалите команду и код:
 
 ```bash
 sed -i '/_renew-hook/d' /etc/letsencrypt/renewal/*.conf
@@ -77,7 +76,7 @@ rm -f /etc/letsencrypt/renewal-hooks/{pre,post}/xvei-free-port80.sh
 sed -i '/_renew-hook/d' /etc/letsencrypt/renewal/*.conf
 rm -f /usr/local/bin/xvei
 rm -rf /usr/local/lib/xvei      # или папка вашего git clone
-rm -rf ~/xray_eis               # клиентские ссылки/конфиги, по желанию
+rm -rf ~/xray_eis               # осталась от старых версий xvei, если есть
 ```
 
 Без хуков certbot после продления сертификата перезапускайте Xray сами
@@ -92,9 +91,6 @@ rm -rf ~/xray_eis               # клиентские ссылки/конфиг
 | `/usr/local/etc/xray/config.json.xvei-orig` | принятая настройка: конфиг до xvei |
 | `/etc/hysteria/config.yaml` | сгенерированный конфиг Hysteria2 |
 | `/etc/nginx/sites-enabled/xvei.conf` (Debian/Ubuntu) или `/etc/nginx/conf.d/xvei.conf` (CentOS), `/var/www/xvei-site` | vhost фолбэка + сайт-прикрытие |
-| `~/xray_eis/<tag>.link` | клиентская ссылка на каждый inbound |
-| `~/xray_eis/<tag>.json` | полный клиентский конфиг Xray на каждый inbound |
-| `~/xray_eis/turnable.link`, `turnable.app.link` | ссылка `turnable://` для клиента Turnable и `vless://` для прокси-приложения |
 | `/etc/turnable/config.json`, `/usr/local/bin/turnable` | конфиг и программа сервера Turnable |
 
 ## Структура репозитория

@@ -72,6 +72,6 @@ remove_adopted() {
         check_service xray || true
     fi
     rm -f "$XVEI_STATE" "$XVEI_STATE.bak"
-    rm -rf "$CLIENT_DIR" "$XVEI_MARKERS"
+    rm -rf "$LEGACY_CLIENT_DIR" "$XVEI_MARKERS"
     ok "xvei removed; Xray itself stays installed"
 }

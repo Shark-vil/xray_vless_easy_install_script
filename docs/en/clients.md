@@ -17,15 +17,15 @@ Windows, macOS, Android via Termux).
 > install is your own decision and your own risk.
 
 `xvei links` prints the share URIs; `xvei qr <tag>` shows a scannable code.
-Apps that cannot import a `vless://` / `ss://` link can load the full config
-from `~/xray_eis/<tag>.json`.
+Apps that cannot import a `vless://` / `ss://` link can load the full Xray
+config: `xvei client-config <tag> > <tag>.json` (not for `hysteria2`).
 
 ## Client-side routing tip
 
 This is about local split tunnelling on the **client device** (its own ISP
 instead of the VPN) — it has nothing to do with the server and does not expose
 its IP. The template already puts such "in-country / popular → direct" rules
-into `~/xray_eis/<tag>.json`. If an app imports only the `vless://` link, add
+into the config from `xvei client-config <tag>`. If an app imports only the `vless://` link, add
 direct rules on the client by hand, for example for Russia:
 
 **IP:** `geoip:private`, `geoip:ru`

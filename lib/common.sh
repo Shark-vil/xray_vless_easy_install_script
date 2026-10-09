@@ -16,12 +16,13 @@ HY2_SERVICE="hysteria-server"
 NGINX_SITE_AVAILABLE="/etc/nginx/sites-available/default"
 NGINX_SITE_ENABLED="/etc/nginx/sites-enabled/default"
 
+# older versions wrote client links/configs here; now they are generated on
+# the fly (xvei links / qr / client-config), `xvei remove` deletes the folder
 if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
-    CLIENT_DIR="$(getent passwd "$SUDO_USER" | cut -d: -f6)/xray_eis"
+    LEGACY_CLIENT_DIR="$(getent passwd "$SUDO_USER" | cut -d: -f6)/xray_eis"
 else
-    CLIENT_DIR="${HOME}/xray_eis"
+    LEGACY_CLIENT_DIR="${HOME}/xray_eis"
 fi
-export XVEI_CLIENT_DIR="$CLIENT_DIR"
 
 # XVEI_ROOT is exported by xvei.sh before sourcing this file.
 PYENGINE="${XVEI_ROOT}/pyengine"

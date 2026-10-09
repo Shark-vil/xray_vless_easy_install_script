@@ -100,8 +100,8 @@ xvei qr vless_reality
 ```
 
 Import the link or scan the QR code in a client app such as v2rayNG, NekoBox
-or Hiddify — see [clients](clients.md). Full client configs are also saved in
-`~/xray_eis/`.
+or Hiddify — see [clients](clients.md). The full Xray client config (with the
+template's routing rules) is printed by `xvei client-config <tag>`.
 
 ## 5. Change things later
 

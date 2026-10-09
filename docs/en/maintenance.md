@@ -52,9 +52,8 @@ renewal challenge only if it holds `:80`, then start it again.
 **Adopted setup** (Xray was there before xvei): `xvei remove` (menu:
 `11) Uninstall xvei`) already keeps Xray. It removes only what xvei set up
 itself (WARP, TOR, Hysteria2, Turnable, its nginx vhost, certbot hooks), asks
-whether to restore `config.json.xvei-orig`, and deletes the xvei state and
-`~/xray_eis`. Xray, its service and certificates stay. Then remove the
-command and code:
+whether to restore `config.json.xvei-orig`, and deletes the xvei state. Xray,
+its service and certificates stay. Then remove the command and code:
 
 ```bash
 sed -i '/_renew-hook/d' /etc/letsencrypt/renewal/*.conf
@@ -75,7 +74,7 @@ rm -f /etc/letsencrypt/renewal-hooks/{pre,post}/xvei-free-port80.sh
 sed -i '/_renew-hook/d' /etc/letsencrypt/renewal/*.conf
 rm -f /usr/local/bin/xvei
 rm -rf /usr/local/lib/xvei      # or your git clone folder
-rm -rf ~/xray_eis               # client links/configs, optional
+rm -rf ~/xray_eis               # left by older xvei versions, if present
 ```
 
 Without the certbot hooks, restart Xray yourself after a certificate renewal
@@ -90,9 +89,6 @@ Without the certbot hooks, restart Xray yourself after a certificate renewal
 | `/usr/local/etc/xray/config.json.xvei-orig` | adopted setups: the config as it was before xvei |
 | `/etc/hysteria/config.yaml` | generated Hysteria2 config (+ `cert.crt`/`cert.key`) |
 | `/etc/nginx/sites-enabled/xvei.conf` (Debian/Ubuntu) or `/etc/nginx/conf.d/xvei.conf` (CentOS), `/var/www/xvei-site` | fallback vhost + camouflage site |
-| `~/xray_eis/<tag>.link` | client share link per inbound |
-| `~/xray_eis/<tag>.json` | full Xray client config per inbound (not for `hysteria2`) |
-| `~/xray_eis/turnable.link`, `turnable.app.link` | `turnable://` link for the Turnable client and the `vless://` link for the proxy app |
 | `/etc/turnable/config.json`, `/usr/local/bin/turnable` | Turnable server config and binary |
 
 ## Repository layout

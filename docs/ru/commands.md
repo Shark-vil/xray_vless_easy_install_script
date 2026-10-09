@@ -22,6 +22,7 @@ xvei site [list | auth | blank | 404 | <заготовка> | proxy <url|preset>
 
 xvei links [tag]         вывести клиентские ссылки
 xvei qr <tag>            QR-код для одного inbound
+xvei client-config <tag> полный клиентский конфиг Xray (с правилами маршрутизации)
 xvei status              сервисы и активный шаблон
 xvei show-config [файл]  вывести config.json в читаемом виде (JSON5, комментарии сохраняются)
 xvei firewall [status | open | setup]   см. maintenance.md, «Файрвол»

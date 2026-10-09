@@ -88,7 +88,7 @@ wizard_install() {
     echo
     py show-links
     echo
-    ok "Client files: $CLIENT_DIR"
+    log "full client config with routing rules: xvei client-config <tag>"
 }
 
 xvei_remove() {
@@ -106,7 +106,7 @@ xvei_remove() {
     xray_remove_pkg
     nginx_teardown
     cert_hook_teardown
-    rm -rf "$XRAY_DIR" "$HY2_DIR" "$CLIENT_DIR" "$XVEI_MARKERS"
+    rm -rf "$XRAY_DIR" "$HY2_DIR" "$LEGACY_CLIENT_DIR" "$XVEI_MARKERS"
     ok "xvei removed"
 }
 
@@ -158,6 +158,7 @@ xvei - a simple Xray server setup manager
 
   xvei links [tag]         print client share links
   xvei qr <tag>            print a QR code for one inbound
+  xvei client-config <tag> print the full Xray client config (with routing rules)
   xvei status              services + active template
   xvei show-config [file]  print config.json (JSON5, comments kept) readably
   xvei firewall [status | open | setup]
@@ -190,9 +191,10 @@ case "$cmd" in
     set-meta)            _apply_after set-meta "$@" ;;
     links)               py show-links ${1:+--tag "$1"} ;;
     qr)                  [ -n "${1:-}" ] || die "usage: xvei qr <tag>"
-                         f="$CLIENT_DIR/$1.link"
-                         [ -f "$f" ] || die "no link file: $f"
-                         qrencode -t ANSIUTF8 "$(cat "$f")" ;;
+                         link="$(py link "$1")" || exit 1
+                         qrencode -t ANSIUTF8 "$link" ;;
+    client-config)       [ -n "${1:-}" ] || die "usage: xvei client-config <tag>"
+                         py client-config "$1" ;;
     status)              menu_status ;;
     show-config)         show_config "${1:-}" ;;
     firewall)            case "${1:-status}" in

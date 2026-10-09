@@ -86,10 +86,30 @@ def cmd_turnable_keys(a) -> int:
     return 0
 
 
-def cmd_links(a) -> int:
+def _inbound_or_die(data: dict, tag: str) -> dict:
+    ib = st.inbound_by_tag(data, tag)
+    if not ib:
+        util.die(f"no inbound with tag {tag!r} (see: xvei links)")
+    return ib
+
+
+def cmd_link(a) -> int:
+    """Print one inbound's share link (for the QR code)."""
     data = _load()
-    for p in links.write_all(data, a.dir):
-        util.log(p)
+    link = links.share_link(data, _inbound_or_die(data, a.tag))
+    if not link:
+        util.die(f"{a.tag}: no share link")
+    print(link)
+    return 0
+
+
+def cmd_client_config(a) -> int:
+    """Print the full Xray client config of one inbound (with routing rules)."""
+    data = _load()
+    ib = _inbound_or_die(data, a.tag)
+    if ib["type"] == "hysteria2":
+        util.die("hysteria2 has no Xray client config; use its share link")
+    print(json.dumps(links.full_config(data, ib), indent=2))
     return 0
 
 
@@ -392,9 +412,13 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--turnable-out", default=None)
     b.set_defaults(fn=cmd_build)
 
-    lk = sub.add_parser("links")
-    lk.add_argument("--dir", default=None)
-    lk.set_defaults(fn=cmd_links)
+    lk = sub.add_parser("link")
+    lk.add_argument("tag")
+    lk.set_defaults(fn=cmd_link)
+
+    cc = sub.add_parser("client-config")
+    cc.add_argument("tag")
+    cc.set_defaults(fn=cmd_client_config)
 
     sl = sub.add_parser("show-links")
     sl.add_argument("--tag", default=None)
