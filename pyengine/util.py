@@ -122,14 +122,23 @@ def confirm(text: str, default_yes: bool = True) -> bool:
 
 
 def choose(text: str, options: list[tuple[str, str]], default: str | None = None) -> str:
-    """options = [(value, label), ...]; returns the chosen value."""
+    """options = [(value, label), ...]; returns the chosen value. A "back"
+    option is always listed last as 0, the others are numbered from 1."""
+    back = [o for o in options if o[0] == "back"]
+    items = [o for o in options if o[0] != "back"]
+    if back and default == "back":
+        default = "0"
     while True:
         print(f"{C_INFO}?{C_RESET} {text}", file=sys.stderr)
-        for i, (_val, label) in enumerate(options, 1):
+        for i, (_val, label) in enumerate(items, 1):
             print(f"   {i}) {label}", file=sys.stderr)
+        if back:
+            print(f"   0) {back[0][1]}", file=sys.stderr)
         raw = prompt("Number", default)
-        if raw.isdigit() and 1 <= int(raw) <= len(options):
-            return options[int(raw) - 1][0]
+        if back and raw == "0":
+            return "back"
+        if raw.isdigit() and 1 <= int(raw) <= len(items):
+            return items[int(raw) - 1][0]
         for val, _label in options:
             if raw == val:
                 return val
