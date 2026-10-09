@@ -16,6 +16,7 @@ import sys
 
 import editor
 import hy2conf
+import turnconf
 import json5lite
 import links
 import proxylinks
@@ -59,6 +60,29 @@ def cmd_build(a) -> int:
     if hy2 is not None:
         util.atomic_write(a.hy2_out, hy2, mode=0o600)
         util.ok(f"wrote {a.hy2_out}")
+    tcfg = turnconf.build(data)
+    if tcfg is not None and a.turnable_out:
+        util.atomic_write(a.turnable_out, tcfg, mode=0o600)
+        util.ok(f"wrote {a.turnable_out}")
+    return 0
+
+
+def cmd_turnable_info(a) -> int:
+    """Print requested fields of the turnable inbound, space separated."""
+    ib = st.get_type(_load(), "turnable")
+    if not ib:
+        return 1
+    print(" ".join(str(ib.get(f, "")) for f in a.fields))
+    return 0
+
+
+def cmd_turnable_keys(a) -> int:
+    data = _load()
+    ib = st.get_type(data, "turnable")
+    if not ib:
+        util.die("no turnable inbound")
+    ib["priv_key"], ib["pub_key"] = a.priv, a.pub
+    st.save(data)
     return 0
 
 
@@ -328,6 +352,7 @@ def cmd_wizard(a) -> int:
         ("vmess-ws", "VMess WebSocket (legacy clients only)"),
         ("shadowsocks", "Shadowsocks"),
         ("hysteria2", "Hysteria2"),
+        ("turnable", "Turnable via VK calls (UNSTABLE, NOT anonymous: VK sees the server IP)"),
     ]
     chosen: list[str] = []
     for val, label in types:
@@ -371,6 +396,7 @@ def build_parser() -> argparse.ArgumentParser:
     b = sub.add_parser("build")
     b.add_argument("--xray-out", default=XRAY_CONFIG_DEFAULT)
     b.add_argument("--hy2-out", default=HY2_CONFIG_DEFAULT)
+    b.add_argument("--turnable-out", default=None)
     b.set_defaults(fn=cmd_build)
 
     lk = sub.add_parser("links")
@@ -389,6 +415,15 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("list-inbounds").set_defaults(fn=cmd_list_inbounds)
     sub.add_parser("summary").set_defaults(fn=cmd_summary)
     sub.add_parser("ports").set_defaults(fn=cmd_ports)
+
+    ti = sub.add_parser("turnable-info")
+    ti.add_argument("fields", nargs="+")
+    ti.set_defaults(fn=cmd_turnable_info)
+
+    tk = sub.add_parser("turnable-keys")
+    tk.add_argument("--priv", required=True)
+    tk.add_argument("--pub", required=True)
+    tk.set_defaults(fn=cmd_turnable_keys)
 
     ad = sub.add_parser("adopt")
     ad.add_argument("--config", default=XRAY_CONFIG_DEFAULT)

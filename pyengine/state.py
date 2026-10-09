@@ -19,6 +19,7 @@ INBOUND_TYPES = (
     "vmess-ws",
     "shadowsocks",
     "hysteria2",
+    "turnable",
 )
 
 # inbounds that live behind vless-tls's :443 fallbacks (no port of their own)
@@ -183,6 +184,8 @@ def needs(data: dict) -> list[str]:
     out: list[str] = []
     if any(ib["type"] in TLS_TYPES for ib in data["inbounds"]):
         out.append("cert")
+    if has_type(data, "turnable"):
+        out.append("turnable")
     if has_type(data, "hysteria2"):
         out.append("hysteria2")
         if data["domain"]:
@@ -209,7 +212,7 @@ def public_ports(data: dict) -> list[str]:
             out.append(f"{port}/tcp")
         elif t == "shadowsocks":
             out += [f"{port}/tcp", f"{port}/udp"]
-        elif t == "hysteria2":
+        elif t in ("hysteria2", "turnable"):
             out.append(f"{port}/udp")
     seen: set[str] = set()
     return [x for x in out if not (x in seen or seen.add(x))]

@@ -75,6 +75,17 @@ _check_hy2() {
     _upd_cmp hysteria2 "${cur#v}" "${latest##*v}"
 }
 
+_check_turnable() {
+    [ -x "$TURNABLE_BIN" ] || return 0
+    local cur latest st
+    cur="$(cat "$TURNABLE_DIR/.version" 2>/dev/null)"
+    latest="$(_gh_latest_tag TheAirBlow/Turnable)"
+    if [ -z "$latest" ]; then st="unknown"
+    elif _ver_lt "$cur" "$latest"; then st="newer release not reviewed yet (pinned by xvei)"
+    else st="up to date"; fi
+    _upd_row turnable "$cur" "$latest" "$st"
+}
+
 _geo_file() {
     local d
     for d in $GEO_DIRS; do
@@ -141,6 +152,7 @@ check_updates() {
     _check_xvei
     _check_xray
     _check_hy2
+    _check_turnable
     local geo_tag; geo_tag="$(_gh_latest_tag "$GEO_REPO")"
     _check_geo geoip.dat "$geo_tag"
     _check_geo geosite.dat "$geo_tag"

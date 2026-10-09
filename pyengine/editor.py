@@ -19,7 +19,7 @@ HY2_MARKER = "/var/lib/xvei/managed/hysteria2"
 def _used_ports(data: dict) -> set[int]:
     ports: set[int] = st.base_ports(data)
     for ib in data["inbounds"]:
-        for key in ("port", "socks_port"):
+        for key in ("port", "socks_port", "local_port"):
             if isinstance(ib.get(key), int):
                 ports.add(ib[key])
     return ports
@@ -109,6 +109,23 @@ def _new_inbound(data: dict, itype: str, opts: dict) -> dict:
                   password=util.rand_password(16),
                   up_mbps=int(opts.get("up_mbps") or 0),
                   down_mbps=int(opts.get("down_mbps") or 0))
+    elif itype == "turnable":
+        util.warn("Turnable is UNSTABLE and NOT anonymous: VK relays the traffic "
+                  "and sees this server's real IP address; VK can break it at any time.")
+        used = _used_ports(data)
+        port = int(opts.get("port") or util.prompt("Turnable UDP port", "56000"))
+        if port in used:
+            util.die(f"port {port} already used")
+        raw = opts.get("dest") or util.prompt(
+            "VK call link or ID (any public https://vk.com/call/join/... link)")
+        call_id = raw.strip().rstrip("/").split("/call/join/")[-1].split("?")[0]
+        if not re.fullmatch(r"[A-Za-z0-9_-]{4,}", call_id):
+            util.die("not a VK call link or ID")
+        local_port = 10900
+        while local_port in used:
+            local_port += 1
+        ib.update(port=port, call_id=call_id, local_port=local_port,
+                  turnable_uuid=util.new_uuid(), peers=5)
     else:
         util.die(f"unknown inbound type {itype!r}")
     return ib
@@ -382,6 +399,7 @@ def menu_inbounds(data: dict) -> bool:
                 ("vmess-ws", "VMess WebSocket (fallback on :443, legacy)"),
                 ("shadowsocks", "Shadowsocks"),
                 ("hysteria2", "Hysteria2 (via local SOCKS5 -> Xray)"),
+                ("turnable", "Turnable via VK calls (UNSTABLE, NOT anonymous: VK sees the server IP)"),
             ])
             if add_inbound(data, itype):
                 return True

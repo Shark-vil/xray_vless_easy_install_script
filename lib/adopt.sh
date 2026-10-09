@@ -60,6 +60,7 @@ adopt_existing() {
 remove_adopted() {
     log "this Xray setup was adopted: removing only what xvei added"
     xvei_owns hysteria2 && hy2_remove_pkg
+    turnable_down
     warp_down
     tor_down
     nginx_teardown

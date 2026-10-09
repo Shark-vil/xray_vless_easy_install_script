@@ -58,7 +58,7 @@ fi
 
 # --- load modules ------------------------------------------------------
 # shellcheck source=lib/common.sh
-for m in common deps adopt xray nginx certs hysteria2 warp tor firewall update apply menu; do
+for m in common deps adopt xray nginx certs hysteria2 turnable warp tor firewall update apply menu; do
     # shellcheck disable=SC1090
     source "$XVEI_ROOT/lib/$m.sh"
 done
@@ -100,6 +100,7 @@ xvei_remove() {
     log "stopping services"
     systemctl disable --now xray.service 2>/dev/null || true
     hy2_remove_pkg
+    turnable_down
     warp_down
     tor_down
     xray_remove_pkg
@@ -140,6 +141,8 @@ xvei - Xray + Hysteria2 installer / live editor
   xvei add-inbound  <type> [--port N] [--dest SNI] [--method M]
        types: vless-tls vless-ws vless-xhttp-reality vless-xhttp-tls
               trojan-tcp trojan-ws vmess-ws shadowsocks hysteria2
+              turnable (UNSTABLE, NOT anonymous: VK sees the server IP;
+                        --dest takes the VK call link)
   xvei remove-inbound <tag>
   xvei add-outbound   <warp|tor|LINK ...> [--tag T]
        LINK: vless:// vmess:// trojan:// ss:// socks5:// http:// share link

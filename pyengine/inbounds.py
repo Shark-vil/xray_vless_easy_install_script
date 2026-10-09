@@ -188,6 +188,20 @@ def _vmess_ws(ib: dict, data: dict) -> dict:
     }
 
 
+def _turnable_local(ib: dict, data: dict) -> dict:
+    """Plain VLESS on loopback that the Turnable server forwards into. Turnable
+    authenticates users and encrypts the tunnel; Xray does the routing."""
+    return {
+        "listen": "127.0.0.1",
+        "port": ib["local_port"],
+        "protocol": "vless",
+        "tag": ib["tag"],
+        "settings": {"clients": _clients(ib), "decryption": "none"},
+        "streamSettings": {"network": "tcp", "security": "none"},
+        "sniffing": SNIFF,
+    }
+
+
 def _shadowsocks(ib: dict, data: dict) -> dict:
     return {
         "listen": "0.0.0.0",
@@ -225,6 +239,7 @@ _BUILDERS = {
     "vmess-ws": _vmess_ws,
     "shadowsocks": _shadowsocks,
     "hysteria2": _hysteria2_socks,
+    "turnable": _turnable_local,
 }
 
 
@@ -264,4 +279,5 @@ def default_tag(itype: str) -> str:
         "vmess-ws": "vmess_ws",
         "shadowsocks": "ss",
         "hysteria2": "hy2",
+        "turnable": "turnable",
     }[itype]
