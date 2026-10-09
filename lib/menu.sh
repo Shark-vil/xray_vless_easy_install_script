@@ -11,26 +11,55 @@ _menu_apply_if_changed() {
     esac
 }
 
+# qr_show <title> <link>: a titled QR code with the link under it
+qr_show() {
+    ui_header "QR $_s_sep $1"
+    if command -v qrencode >/dev/null 2>&1; then
+        if [ -n "${XVEI_ASCII:-}" ]; then
+            qrencode -t ANSI "$2"
+        else
+            qrencode -t ANSIUTF8 "$2"
+        fi
+    else
+        warn "qrencode is not installed; only the link is shown"
+    fi
+    echo "$2"
+}
+
 menu_links() {
-    mapfile -t tags < <(py list-inbounds | cut -f1)
-    if [ "${#tags[@]}" -eq 0 ]; then warn "no inbounds"; return; fi
     py show-links
-    echo
-    local t; t="$(read_value "QR for which tag (empty to skip)")"
-    [ -n "$t" ] || return 0
-    local link; link="$(py link "$t")" || return 0
-    qrencode -t ANSIUTF8 "$link"
+    local picked
+    # pick an inbound (and a client) for a QR code until Back
+    while picked="$(py qr-pick)" && [ -n "$picked" ]; do
+        qr_show "${picked%%$'\t'*}" "${picked#*$'\t'}"
+    done
+}
+
+# _svc_line <label> <unit>: one service with its state, if it is installed
+_svc_line() {
+    systemctl cat "$2" >/dev/null 2>&1 || return 0
+    if systemctl is-active --quiet "$2"; then
+        printf '  %s%s%s %-12s %sactive%s\n' "$_c_ok" "$_s_on" "$_c_off" "$1" "$_c_ok" "$_c_off"
+    else
+        printf '  %s%s%s %-12s %sinactive%s\n' "$_c_err" "$_s_off" "$_c_off" "$1" "$_c_err" "$_c_off"
+    fi
 }
 
 menu_status() {
     py summary
-    echo
-    systemctl is-active --quiet xray && ok "xray: active" || err "xray: inactive"
-    if command -v hysteria >/dev/null 2>&1; then
-        systemctl is-active --quiet "$HY2_SERVICE" && ok "hysteria2: active" || warn "hysteria2: inactive"
-    fi
-    if command -v nginx >/dev/null 2>&1; then
-        systemctl is-active --quiet nginx && ok "nginx: active" || warn "nginx: inactive"
+    ui_header "Services"
+    _svc_line xray xray.service
+    _svc_line hysteria2 "$HY2_SERVICE.service"
+    _svc_line turnable "$TURNABLE_SERVICE.service"
+    _svc_line nginx nginx.service
+    _svc_line tor tor.service
+    if command -v docker >/dev/null 2>&1 \
+        && docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$WARP_CONTAINER"; then
+        if docker ps --format '{{.Names}}' | grep -qx "$WARP_CONTAINER"; then
+            printf '  %s%s%s %-12s %srunning%s\n' "$_c_ok" "$_s_on" "$_c_off" warp "$_c_ok" "$_c_off"
+        else
+            printf '  %s%s%s %-12s %sstopped%s\n' "$_c_err" "$_s_off" "$_c_off" warp "$_c_err" "$_c_off"
+        fi
     fi
 }
 
@@ -46,21 +75,24 @@ main_menu() {
         return 0
     fi
     while true; do
-        echo
-        echo "== XVEI =="
-        echo " 1) Inbounds        (add / remove / list)"
-        echo " 2) Outbounds       (WARP / TOR / share links)"
-        echo " 3) Routing rules   (block / direct / warp / tor / added outbounds)"
-        echo " 4) Routing template (country / popular direct) & exit mode"
-        echo " 5) Camouflage site (auth / static preset / reverse-proxy)"
-        echo " 6) Show links / QR"
-        echo " 7) Status"
-        echo " 8) View config.json"
-        echo " 9) Firewall        (optional: open ports / lockdown)"
-        echo "10) Check for updates (xvei / xray / hysteria2 / geo data)"
-        echo "11) Uninstall xvei"
-        echo " 0) Exit"
-        local c; c="$(read_value "Choose")"
+        local domain; domain="$(state_get domain)"
+        ui_header "XVEI${domain:+ $_s_sep $domain}"
+        ui_group "Configure"
+        ui_opt 1 "Inbounds" "add / remove / list"
+        ui_opt 2 "Outbounds" "WARP / TOR / share links"
+        ui_opt 3 "Routing rules" "block / direct / tunnels"
+        ui_opt 4 "Routing template" "country / popular, exit mode"
+        ui_opt 5 "Camouflage site" "auth / static preset / reverse proxy"
+        ui_group "View"
+        ui_opt 6 "Links / QR codes"
+        ui_opt 7 "Status" "summary and services"
+        ui_opt 8 "config.json"
+        ui_group "Maintenance"
+        ui_opt 9 "Firewall" "open ports / lockdown (optional)"
+        ui_opt 10 "Updates" "xvei / xray / hysteria2 / geo data"
+        ui_opt 11 "Uninstall xvei"
+        ui_back Exit
+        local c; c="$(read_value "Choose" 0)"
         case "$c" in
             1) py menu inbounds;  _menu_apply_if_changed $? ;;
             2) py menu outbounds; _menu_apply_if_changed $? ;;

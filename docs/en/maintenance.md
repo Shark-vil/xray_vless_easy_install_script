@@ -4,7 +4,7 @@
 
 ## Updates
 
-`xvei check-updates` (menu: `10) Check for updates`) prints the installed and
+`xvei check-updates` (menu: `10) Updates`) prints the installed and
 latest version of each component and offers to install the available updates:
 
 | component | installed | compared with |

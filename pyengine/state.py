@@ -182,30 +182,46 @@ def base_inbounds(data: dict) -> list[dict]:
     return list((data.get("base") or {}).get("inbounds") or []) if data.get("adopted") else []
 
 
-def describe_raw_inbound(ib: dict) -> str:
-    """One-line description of an inbound as it is in an Xray config."""
+def raw_inbound_detail(ib: dict) -> str:
+    """What an inbound of an Xray config is, e.g. 'vless :443 tcp/tls'."""
     ss = ib.get("streamSettings") or {}
     net = f" {ss.get('network', 'tcp')}/{ss.get('security', 'none')}" if ss else ""
     where = ib.get("port") or ib.get("listen") or "?"
-    return f"{ib.get('tag') or '(no tag)'} ({ib.get('protocol', '?')} :{where}{net})"
+    return f"{ib.get('protocol', '?')} :{where}{net}"
+
+
+def describe_raw_inbound(ib: dict) -> str:
+    """One-line description of an inbound as it is in an Xray config."""
+    return f"{ib.get('tag') or '(no tag)'} ({raw_inbound_detail(ib)})"
 
 
 def base_outbounds(data: dict) -> list[dict]:
     return list((data.get("base") or {}).get("outbounds") or []) if data.get("adopted") else []
 
 
-def describe_raw_outbound(ob: dict) -> str:
-    """One-line description of an outbound as it is in an Xray config."""
-    proto = ob.get("protocol", "?")
+def raw_outbound_detail(ob: dict) -> str:
+    """What an outbound of an Xray config is, e.g. 'socks 127.0.0.1:1080'."""
+    out = ob.get("protocol", "?")
     settings = ob.get("settings") or {}
     srv = (settings.get("vnext") or settings.get("servers") or [None])[0]
-    out = f"{ob.get('tag') or '(no tag)'} ({proto}"
     if isinstance(srv, dict):
         out += f" {srv.get('address', '?')}:{srv.get('port', '?')}"
     ss = ob.get("streamSettings") or {}
     if ss:
         out += f" {ss.get('network', 'tcp')}/{ss.get('security', 'none')}"
-    return out + ")"
+    return out
+
+
+def describe_raw_outbound(ob: dict) -> str:
+    """One-line description of an outbound as it is in an Xray config."""
+    return f"{ob.get('tag') or '(no tag)'} ({raw_outbound_detail(ob)})"
+
+
+def raw_rule_parts(rule: dict) -> tuple[str, str]:
+    """(matchers, target) of a routing rule, for display."""
+    d = describe_raw_rule(rule)
+    head, _, target = d.rpartition(" -> ")
+    return head, target
 
 
 def describe_raw_rule(rule: dict) -> str:

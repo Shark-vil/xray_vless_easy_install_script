@@ -93,9 +93,16 @@ def _inbound_or_die(data: dict, tag: str) -> dict:
     return ib
 
 
+def _print_link(tag: str, name: str, link: str, labelled: bool) -> int:
+    sep = f" {util.SYM['sep']} "
+    print(f"{tag}{sep + name if name else ''}\t{link}" if labelled else link)
+    return 0
+
+
 def cmd_link(a) -> int:
     """Print one share link of an inbound (for the QR code). An inbound with
-    several clients asks which one, unless --client picks it (name or number)."""
+    several clients asks which one, unless --client picks it (name or number).
+    With --label: "<inbound · client>\\t<link>"."""
     found = links.inbound_links(_load(), a.tag)
     if found is None:
         util.die(f"no inbound with tag {a.tag!r} (see: xvei links)")
@@ -104,15 +111,36 @@ def cmd_link(a) -> int:
     pick = a.client
     if pick is None and len(found) > 1:
         pick = util.choose("Which client", [(str(i), name or f"#{i}")
-                                            for i, (name, _l) in enumerate(found, 1)], "1")
+                                            for i, (name, _l) in enumerate(found, 1)]
+                           + [("back", "Back")], "back")
+        if pick == "back":
+            return 2
     if pick is None:
-        print(found[0][1])
-        return 0
+        return _print_link(a.tag, "", found[0][1], a.label)
     for i, (name, link) in enumerate(found, 1):
         if pick in (str(i), name):
-            print(link)
-            return 0
+            return _print_link(a.tag, name if len(found) > 1 else "", link, a.label)
     util.die(f"{a.tag}: no client {pick!r}")
+
+
+def cmd_qr_pick(_a) -> int:
+    """Menu "Links / QR codes": pick an inbound, then a client; prints
+    "<inbound · client>\\t<link>", or exits 2 on Back."""
+    data = _load()
+    rows = [(ib["tag"], ib["type"]) for ib in data["inbounds"]]
+    rows += [(ib["tag"], f"{st.raw_inbound_detail(ib)} {util.SYM['sep']} existing")
+             for ib in st.base_inbounds(data) if ib.get("tag")]
+    rows = [(t, d) for t, d in rows if links.inbound_links(data, t)]
+    if not rows:
+        util.warn("no inbound has a share link")
+        return 2
+    w = max(len(t) for t, _ in rows)
+    opts = [(t, f"{t:<{w}}  {util.paint(d, util.DIM, stream=sys.stderr)}") for t, d in rows]
+    tag = util.choose("QR code for which inbound", opts + [("back", "Back")], "back")
+    if tag == "back":
+        return 2
+    a = argparse.Namespace(tag=tag, client=None, label=True)
+    return cmd_link(a)
 
 
 def cmd_client_config(a) -> int:
@@ -359,34 +387,55 @@ def cmd_ports(_a) -> int:
 def cmd_summary(_a) -> int:
     data = _load()
     r = data["routing"]
+    dim, bold = (lambda s: util.paint(s, util.DIM)), (lambda s: util.paint(s, util.BOLD))
+
+    def kv(key: str, val: str) -> None:
+        print(f"  {dim(f'{key:<12}')} {val}")
+
+    def items(title: str, rows: list[tuple[str, str]], extra: str = "") -> None:
+        print(util.paint(f"  {title}", util.BOLD, util.YELLOW))
+        if not rows:
+            print(dim("    (none)"))
+        width = max((len(t) for t, _ in rows), default=0)
+        for t, d in rows:
+            print(f"    {util.SYM['bullet']} {bold(f'{t:<{width}}')}  {dim(d)}")
+        if extra:
+            print(dim(f"    {extra}"))
+
+    util.header("Overview")
+    if data.get("adopted"):
+        kv("Mode", "adopted Xray config (kept as is, xvei parts merged in)")
+    kv("Domain", data.get("domain") or dim("(none)"))
+    kv("Certificate", data["cert"]["mode"])
+    detail = f"exit {r.get('mode')}" + (f" via {r.get('tunnel')}" if r.get("tunnel") else "")
+    if r.get("country_exit"):
+        detail = f"in-country {util.SYM['arrow']} {r.get('country_exit')}, rest {detail}"
+    kv("Template", f"{r.get('template')} {util.SYM['sep']} {detail}")
+    builtin = [f"{n.upper()} {'on' if data['outbounds'][n] else 'off'}"
+               for n in st.builtin_tunnels(data)]
+    if builtin:
+        kv("Tunnels", f" {util.SYM['sep']} ".join(builtin))
+    print()
     if data.get("adopted"):
         base = data.get("base") or {}
-        print("mode        : adopted existing Xray config (kept as is, xvei parts merged in)")
-        print("existing    :")
-        for ib in base.get("inbounds") or []:
-            print(f"  - inbound  {st.describe_raw_inbound(ib)}")
-        for o in base.get("outbounds") or []:
-            print(f"  - outbound {o.get('tag') or '(no tag)'} ({o.get('protocol', '?')})")
-        print(f"  - {len((base.get('routing') or {}).get('rules') or [])} routing rules")
-    print(f"domain      : {data.get('domain') or '(none)'}")
-    print(f"cert        : {data['cert']['mode']}")
-    detail = f"exit={r.get('mode')}" + (f" via {r.get('tunnel')}" if r.get('tunnel') else "")
-    if r.get("country_exit"):
-        detail = f"in-country -> {r.get('country_exit')}, rest {detail}"
-    print(f"template    : {r.get('template')} / {detail}")
-    print(f"outbounds   : warp={data['outbounds']['warp']} tor={data['outbounds']['tor']}")
-    for c in data["custom_outbounds"]:
-        name = f"  ({c['name']})" if c.get("name") else ""
-        print(f"  - {c['tag']}: {proxylinks.describe(c['outbound'])}{name}")
-    print("inbounds    :" + ("" if data["inbounds"] else " (none added by xvei)"))
-    for ib in data["inbounds"]:
-        print(f"  - {ib['tag']} ({ib['type']})")
+        items("Existing (adopted config)",
+              [(ib.get("tag") or "(no tag)", "inbound   " + st.raw_inbound_detail(ib))
+               for ib in base.get("inbounds") or []]
+              + [(o.get("tag") or "(no tag)", "outbound  " + st.raw_outbound_detail(o))
+                 for o in base.get("outbounds") or []],
+              f"+ {len(st.base_rules(data))} routing rules")
+    rows = [(ib["tag"], "inbound   " + ib["type"] + (f" :{ib['port']}" if ib.get("port") else ""))
+            for ib in data["inbounds"]]
+    rows += [(c["tag"], "outbound  " + proxylinks.describe(c["outbound"])
+              + (f"  {c['name']}" if c.get("name") else ""))
+             for c in data["custom_outbounds"]]
+    items("Added by xvei", rows)
     return 0
 
 
 def cmd_wizard(a) -> int:
     data = _load()
-    util.log("== xvei install wizard ==")
+    util.header("Install wizard")
     types = [
         ("vless-tls", "VLESS TLS (Vision)"),
         ("vless-ws", "VLESS WebSocket"),
@@ -447,7 +496,10 @@ def build_parser() -> argparse.ArgumentParser:
     lk = sub.add_parser("link")
     lk.add_argument("tag")
     lk.add_argument("--client", default=None)
+    lk.add_argument("--label", action="store_true")
     lk.set_defaults(fn=cmd_link)
+
+    sub.add_parser("qr-pick").set_defaults(fn=cmd_qr_pick)
 
     cc = sub.add_parser("client-config")
     cc.add_argument("tag")

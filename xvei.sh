@@ -83,12 +83,11 @@ wizard_install() {
     py wizard
     py set-meta --server-ip "$(server_ip)" >/dev/null || true
     apply_all
-    echo
     menu_status
-    echo
     py show-links
     echo
-    log "full client config with routing rules: xvei client-config <tag>"
+    ui_dim "Full client config with routing rules: xvei client-config <tag>"
+    ui_dim "Manage everything later: xvei"
 }
 
 self_update() {
@@ -177,8 +176,8 @@ case "$cmd" in
     set-meta)            _apply_after set-meta "$@" ;;
     links)               py show-links ${1:+--tag "$1"} ;;
     qr)                  [ -n "${1:-}" ] || die "usage: xvei qr <tag> [client]"
-                         link="$(py link "$1" ${2:+--client "$2"})" || exit 1
-                         qrencode -t ANSIUTF8 "$link" ;;
+                         picked="$(py link "$1" ${2:+--client "$2"} --label)" || exit 1
+                         qr_show "${picked%%$'\t'*}" "${picked#*$'\t'}" ;;
     client-config)       [ -n "${1:-}" ] || die "usage: xvei client-config <tag>"
                          py client-config "$1" ;;
     status)              menu_status ;;

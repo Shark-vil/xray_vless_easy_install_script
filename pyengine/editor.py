@@ -420,6 +420,7 @@ def set_site(data: dict, kind: str, proxy_url: str | None = None) -> bool:
 
 
 def menu_site(data: dict) -> bool:
+    util.header("Camouflage site")
     cur = (data.get("site") or {}).get("type", "auth")
     opts = [
         ("auth", "HTTP Basic auth prompt to nowhere (default)"),
@@ -441,26 +442,38 @@ def menu_site(data: dict) -> bool:
 
 # ---- interactive menus (driven from lib/menu.sh) -----------------------
 
+def _item(name: str, detail: str = "", *, dim: bool = True, width: int = 16) -> None:
+    """One list line: `  • name      detail`."""
+    detail = util.paint(detail, util.DIM) if dim else detail
+    print(f"    {util.SYM['bullet']} {util.paint(f'{name:<{width}}', util.BOLD)} {detail}".rstrip())
+
+
+def _group(title: str) -> None:
+    print(util.paint(f"  {title}", util.BOLD, util.YELLOW))
+
+
+def _none() -> None:
+    print(util.paint("    (none)", util.DIM))
+
+
 def _list_inbounds(data: dict) -> None:
     base = st.base_inbounds(data)
     if base:
-        print("  existing (adopted config):")
+        _group("Existing (adopted config)")
         for ib in base:
-            print(f"  = {st.describe_raw_inbound(ib)}")
-        print("  added by xvei:")
+            _item(ib.get("tag") or "(no tag)", st.raw_inbound_detail(ib))
+        _group("Added by xvei")
     if not data["inbounds"]:
-        print("  (none)")
+        _none()
     for ib in data["inbounds"]:
-        extra = ""
-        if ib.get("port"):
-            extra = f" :{ib['port']}"
-        print(f"  - {ib['tag']:<16} {ib['type']}{extra}")
+        _item(ib["tag"], ib["type"] + (f" :{ib['port']}" if ib.get("port") else ""))
 
 
 def menu_inbounds(data: dict) -> bool:
     while True:
-        print("\n-- Inbounds --")
+        util.header("Inbounds")
         _list_inbounds(data)
+        print()
         act = util.choose("Action", [
             ("add", "Add inbound"),
             ("del", "Remove inbound"),
@@ -524,22 +537,23 @@ def _default_tunnel(data: dict, cur: str | None) -> str:
 
 def menu_outbounds(data: dict) -> bool:
     while True:
-        print("\n-- Outbounds --")
+        util.header("Outbounds")
         base = st.base_outbounds(data)
         if base:
-            print("  existing (adopted config; the first one is the default route):")
-            for o in base:
-                print(f"  = {st.describe_raw_outbound(o)}")
-            print("  managed by xvei:")
-        print(f"  WARP: {'on' if data['outbounds']['warp'] else 'off'}")
-        print(f"  TOR : {'on' if data['outbounds']['tor'] else 'off'}")
+            _group("Existing (adopted config)")
+            for i, o in enumerate(base):
+                _item(o.get("tag") or "(no tag)", st.raw_outbound_detail(o)
+                      + (f"   {util.SYM['back']} default route" if i == 0 else ""))
+            _group("Managed by xvei")
+        for name in st.builtin_tunnels(data):
+            on = data["outbounds"][name]
+            _item(name.upper(), util.paint("on", util.GREEN) if on else "off", dim=not on)
         for c in data["custom_outbounds"]:
-            print(f"  {_custom_label(c)}")
-        acts = [
-            ("warp", "Toggle WARP"),
-            ("tor", "Toggle TOR"),
-            ("add", "Add from share link (vless / vmess / trojan / ss / socks5 / http)"),
-        ]
+            _item(c["tag"], proxylinks.describe(c["outbound"])
+                  + (f"  {c['name']}" if c.get("name") else ""))
+        print()
+        acts = [(n, f"Toggle {n.upper()}") for n in st.builtin_tunnels(data)]
+        acts.append(("add", "Add from share link (vless / vmess / trojan / ss / socks5 / http)"))
         if data["custom_outbounds"]:
             acts.append(("del", "Remove an added outbound"))
         if base:
@@ -585,16 +599,21 @@ def menu_rules(data: dict) -> bool:
     buckets += st.extra_buckets(data)
     while True:
         base = st.base_rules(data)
-        print("\n-- Routing rules (checked top to bottom) --")
-        if base:
-            print("  added by xvei (checked first):")
+        util.header("Routing rules")
+        print(util.paint("  Checked top to bottom, the first matching rule wins.", util.DIM))
+        _group("Added by xvei" + (" (checked first)" if base else ""))
         for b in buckets:
             if data["rules"].get(b) or b in ("block", "direct", "warp", "tor"):
-                print(f"  [{b}] " + (", ".join(data['rules'].get(b, [])) or "(empty)"))
+                ms = data["rules"].get(b, [])
+                _item(b, ", ".join(ms) if ms else "(empty)", dim=not ms)
         if base:
-            print("  existing (adopted config):")
+            _group("Existing (adopted config)")
+            arrow = util.paint(util.SYM["arrow"], util.CYAN)
             for i, r in enumerate(base, 1):
-                print(f"  {i:>2}) {st.describe_raw_rule(r)}")
+                what, target = st.raw_rule_parts(r)
+                print(f"    {util.paint(f'{i:>2})', util.CYAN)} {what}  {arrow} "
+                      f"{util.paint(target, util.BOLD)}")
+        print()
         acts = [("add", "Add matcher (send it to an outbound)"),
                 ("remove", "Remove an xvei matcher")]
         if base:
@@ -630,6 +649,7 @@ def _mode_options(data: dict, opts: list[tuple[str, str]]) -> list[tuple[str, st
 
 
 def menu_template(data: dict) -> bool:
+    util.header("Routing template")
     r = data["routing"]
     template = util.choose("Template", [
         ("russia", "Russia (geoip:ru + category-ru -> tunnel/block, never direct)"),

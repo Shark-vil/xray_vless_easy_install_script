@@ -27,7 +27,13 @@ _ver_lt() {
 }
 
 _upd_row() {  # component installed latest status
-    printf '  %-12s %-12s %-14s %s\n' "$1" "${2:--}" "${3:--}" "$4"
+    local c="$_c_dim"
+    case "$4" in
+        "up to date") c="$_c_ok" ;;
+        update*|"unknown installed"*) c="$_c_warn" ;;
+    esac
+    printf '  %s%-12s%s %-12s %-14s %s%s%s\n' "$_c_bold" "$1" "$_c_off" "${2:--}" "${3:--}" \
+        "$c" "$4" "$_c_off"
 }
 
 # _upd_cmp <component> <installed> <latest>
@@ -146,9 +152,9 @@ _apply_updates() {
 check_updates() {
     require_root
     _UPD=()
-    log "checking for updates"
-    echo
-    _upd_row component installed latest status
+    ui_header "Updates"
+    log "checking..."
+    printf '  %s%-12s %-12s %-14s %s%s\n' "$_c_dim" component installed latest status "$_c_off"
     _check_xvei
     _check_xray
     _check_hy2

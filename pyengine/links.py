@@ -201,30 +201,49 @@ def full_config(data: dict, ib: dict) -> dict:
     }
 
 
+def _inbound_title(tag: str, detail: str) -> None:
+    print(f"\n{util.paint(tag, util.BOLD, util.CYAN)}  {util.paint(detail, util.DIM)}")
+
+
+def _client(name: str, link: str) -> None:
+    """A client name, then its link alone on a line (so it copies cleanly)."""
+    if name:
+        print(f"  {util.paint(util.SYM['dot'] + ' ' + name, util.YELLOW)}")
+    print(link)
+
+
 def print_links(data: dict, tag: str | None = None) -> None:
+    util.header("Client links")
+    shown = False
     for ib in data["inbounds"]:
         if tag and ib["tag"] != tag:
             continue
+        shown = True
         link = share_link(data, ib)
-        print(f"\n=== {ib['tag']} ({ib['type']}) ===")
+        _inbound_title(ib["tag"], ib["type"])
         if ib["type"] == "turnable":
-            print("1) Turnable client (run on the device):")
-            print(f"   turnable client -l 127.0.0.1:{TURNABLE_CLIENT_PORT} '{link or '<not available: Turnable is not installed>'}'")
-            print("2) Proxy app (v2rayNG, NekoBox, ...), import:")
-            print(f"   {turnable_app_link(data, ib)}")
+            _client("1. Turnable client, run on the device:",
+                    f"turnable client -l 127.0.0.1:{TURNABLE_CLIENT_PORT} "
+                    f"'{link or '<not available: Turnable is not installed>'}'")
+            _client("2. Proxy app (v2rayNG, NekoBox, ...), import:", turnable_app_link(data, ib))
             continue
-        print(link)
+        _client("", link)
     for ib in st.base_inbounds(data):
         if tag and ib.get("tag") != tag:
             continue
+        shown = True
         found, note = rawlinks.inbound_links(data, ib)
-        print(f"\n=== {st.describe_raw_inbound(ib)} [existing] ===")
+        _inbound_title(ib.get("tag") or "(no tag)",
+                       f"{st.raw_inbound_detail(ib)} {util.SYM['sep']} existing")
         if not found:
-            print(f"(no link: {note})")
-        for name, link in found:
-            if len(found) > 1 and name:
-                print(f"# {name}")
-            print(link)
+            print(util.paint(f"  no link: {note}", util.DIM))
+        for i, (name, link) in enumerate(found):
+            if i:
+                print()
+            _client(name if len(found) > 1 else "", link)
+    if not shown:
+        print(util.paint("  (no inbounds)", util.DIM))
+    print(util.paint("\nQR code: xvei qr <tag> [client]   (menu: Links / QR codes)", util.DIM))
 
 
 def inbound_links(data: dict, tag: str) -> list[tuple[str, str]] | None:

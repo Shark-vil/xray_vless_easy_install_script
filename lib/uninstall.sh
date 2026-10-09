@@ -47,42 +47,51 @@ _remove_pkgs() {
 
 _xvei_code_note() {
     if [ "$XVEI_ROOT" = "$INSTALL_DIR" ]; then
-        echo "  - xvei code: $INSTALL_DIR"
-    else
-        echo "  - (the git clone $XVEI_ROOT stays; delete it yourself if you like)"
+        ui_li "xvei code: $INSTALL_DIR"
     fi
-    echo "  - command: /usr/local/bin/xvei"
+    ui_li "the xvei command: /usr/local/bin/xvei"
 }
 
 _plan_self() {
-    echo "Remove only xvei:"
-    echo "  - xvei state: $XVEI_STATE"
-    echo "  - xvei markers and package list: /var/lib/xvei/{managed,packages}"
-    [ -d "$LEGACY_CLIENT_DIR" ] && echo "  - client files of older versions: $LEGACY_CLIENT_DIR"
+    ui_header "Uninstall xvei"
+    ui_group "Removed"
+    ui_li "xvei state: $XVEI_STATE"
+    ui_li "xvei markers and package list: /var/lib/xvei/{managed,packages}"
+    [ -d "$LEGACY_CLIENT_DIR" ] && ui_li "client files of older versions: $LEGACY_CLIENT_DIR"
     [ -e /etc/letsencrypt/renewal-hooks/deploy/xvei-restart.sh ] \
-        && echo "  - certbot hook that calls xvei (replaced by a standalone restart-xray.sh)"
+        && ui_li "certbot hook that calls xvei (replaced by a standalone restart-xray.sh)"
     _xvei_code_note
-    echo "Kept and still running as now: Xray and $XRAY_CONFIG, nginx and the"
-    echo "site, WARP, TOR, Hysteria2, Turnable, certificates, firewall rules."
+    ui_group "Kept and still running as now"
+    ui_li "Xray and $XRAY_CONFIG"
+    ui_li "nginx and the site, WARP, TOR, Hysteria2, Turnable"
+    ui_li "certificates, firewall rules"
+    [ "$XVEI_ROOT" = "$INSTALL_DIR" ] || ui_li "the git clone $XVEI_ROOT (delete it yourself if you like)"
+    echo
+    ui_dim "To remove xvei together with Xray and everything it set up: xvei remove --all"
 }
 
 _plan_all() {
-    echo "Remove xvei and what it set up:"
+    ui_header "Uninstall xvei and everything it set up"
+    ui_group "Removed"
     if state_exists && is_adopted; then
-        echo "  - only what xvei added to this adopted setup: its WARP / TOR /"
-        echo "    Hysteria2 / Turnable (if xvei started them), its nginx site,"
-        echo "    certbot hooks"
-        echo "  - xvei state; you are asked whether to restore $XRAY_CONFIG.xvei-orig"
-        echo "  Xray itself and its config stay."
+        ui_li "what xvei added to this adopted setup: WARP / TOR / Hysteria2 /"
+        ui_li "Turnable (only if xvei started them), its nginx site, certbot hooks"
+        ui_li "xvei state (you are asked whether to restore $XRAY_CONFIG.xvei-orig)"
     else
-        echo "  - Xray (package, service, $XRAY_DIR including config.json)"
-        echo "  - Hysteria2, Turnable, WARP container, TOR - whichever xvei set up"
-        echo "  - xvei's nginx site, certbot hooks"
+        ui_li "Xray (package, service, $XRAY_DIR including config.json)"
+        ui_li "Hysteria2, Turnable, the WARP container, TOR (whichever xvei set up)"
+        ui_li "xvei's nginx site, certbot hooks"
     fi
     _xvei_code_note
-    echo "Kept: certificates in /etc/letsencrypt, firewall rules."
+    ui_group "Kept"
+    is_adopted 2>/dev/null && ui_li "Xray itself and its config"
+    ui_li "certificates in /etc/letsencrypt, firewall rules"
+    [ "$XVEI_ROOT" = "$INSTALL_DIR" ] || ui_li "the git clone $XVEI_ROOT (delete it yourself if you like)"
     local pk; pk="$(_removable_pkgs | xargs)"
-    [ -n "$pk" ] && echo "Packages xvei installed (removed only if you agree, or with --packages): $pk"
+    if [ -n "$pk" ]; then
+        ui_group "Packages xvei installed (asked separately, or --packages)"
+        ui_li "$pk"
+    fi
     return 0
 }
 
@@ -141,13 +150,7 @@ xvei_remove() {
         esac
     done
     [ "$packages" = 1 ] && [ "$mode" != all ] && die "--packages only goes with --all"
-    echo
-    if [ "$mode" = self ]; then
-        _plan_self
-        echo "(to remove xvei together with Xray and everything it set up: xvei remove --all)"
-    else
-        _plan_all
-    fi
+    if [ "$mode" = self ]; then _plan_self; else _plan_all; fi
     echo
     if [ "$assume_yes" = 0 ]; then
         have_tty || die "nothing removed: confirm with --yes when there is no terminal"

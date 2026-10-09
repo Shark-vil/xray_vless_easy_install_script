@@ -90,14 +90,18 @@ fw_check() {
 
 fw_status() {
     local be p; be="$(fw_backend)"
-    log "firewall: $be"
-    log "SSH port(s): $(fw_ssh_ports | tr '\n' ' ')"
-    log "ports xvei needs:"
+    ui_header "Firewall"
+    printf '  %s%-14s%s %s\n' "$_c_dim" "Firewall" "$_c_off" "$be"
+    printf '  %s%-14s%s %s\n' "$_c_dim" "SSH port(s)" "$_c_off" "$(fw_ssh_ports | xargs)"
+    ui_group "Ports xvei needs"
     while read -r p; do
         [ -n "$p" ] || continue
-        if [ "$be" = none ]; then echo "  $p"
-        elif _fw_is_open "$be" "$p"; then ok "  $p open"
-        else warn "  $p CLOSED"; fi
+        if [ "$be" = none ]; then printf '    %s\n' "$p"
+        elif _fw_is_open "$be" "$p"; then
+            printf '    %-12s %sopen%s\n' "$p" "$_c_ok" "$_c_off"
+        else
+            printf '    %-12s %sCLOSED%s\n' "$p" "$_c_err" "$_c_off"
+        fi
     done < <(fw_needed_ports)
 }
 
@@ -186,13 +190,12 @@ fw_setup() {
 }
 
 menu_firewall() {
-    echo
     fw_status
     echo
-    echo " 1) Open the ports xvei needs (adds allow rules only)"
-    echo " 2) Full setup: deny incoming, allow SSH + xvei ports (opt-in)"
-    echo " 0) Back"
-    case "$(read_value "Choose")" in
+    ui_opt 1 "Open ports" "add allow rules for the ports xvei needs"
+    ui_opt 2 "Full setup" "deny incoming, allow SSH + xvei ports (opt-in)"
+    ui_back
+    case "$(read_value "Choose" 0)" in
         1) fw_open ;;
         2) fw_setup ;;
     esac
