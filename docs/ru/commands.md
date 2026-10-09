@@ -30,6 +30,12 @@ xvei status              сервисы и активный шаблон
 xvei show-config [файл]  вывести config.json в читаемом виде (JSON5, комментарии сохраняются)
 xvei firewall [status | open | setup]   см. maintenance.md, «Файрвол»
 xvei set-meta [--domain D --email E ...]
+xvei backup [list [СТР]]   резервные копии config.json + state xvei, по 10 на страницу
+xvei backup create [ЗАМЕТКА]  сделать копию текущего конфига сейчас
+xvei backup show|diff <N>  посмотреть конфиг копии / что изменит откат к ней
+xvei backup restore <N>    откатиться к ней (с проверкой, как любое изменение)
+xvei backup delete <N>
+xvei backup keep [N]       сколько хранить (по умолчанию 20, 0 = автокопии выключены)
 xvei check-updates       проверить обновления xvei / xray / hysteria2 / geo-данных
 xvei update-geo          обновить geoip/geosite (необязательно; их ставит установщик xray)
 xvei self-update         перекачать дерево скриптов

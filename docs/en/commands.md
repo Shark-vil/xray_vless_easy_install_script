@@ -30,6 +30,12 @@ xvei status              services + active template
 xvei show-config [file]  print config.json readably (JSON5, comments kept)
 xvei firewall [status | open | setup]   see maintenance.md, "Firewall"
 xvei set-meta [--domain D --email E ...]
+xvei backup [list [PAGE]]  backups of config.json + xvei state, 10 a page
+xvei backup create [NOTE]  back up the current config now
+xvei backup show|diff <N>  view a backup's config / what restoring it would change
+xvei backup restore <N>    roll back to it (validated like any change)
+xvei backup delete <N>
+xvei backup keep [N]       how many to keep (default 20, 0 = automatic backups off)
 xvei check-updates       check xvei / xray / hysteria2 / geo data for updates
 xvei update-geo          refresh geoip/geosite (optional; the xray installer ships them)
 xvei self-update         re-fetch the script tree

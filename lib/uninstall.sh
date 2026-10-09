@@ -57,6 +57,7 @@ _plan_self() {
     ui_group "Removed"
     ui_li "xvei state: $XVEI_STATE"
     ui_li "xvei markers and package list: /var/lib/xvei/{managed,packages}"
+    [ -d "$XRAY_DIR/xvei-backups" ] && ui_li "xvei's backups: $XRAY_DIR/xvei-backups"
     [ -d "$LEGACY_CLIENT_DIR" ] && ui_li "client files of older versions: $LEGACY_CLIENT_DIR"
     [ -e /etc/letsencrypt/renewal-hooks/deploy/xvei-restart.sh ] \
         && ui_li "certbot hook that calls xvei (replaced by a standalone restart-xray.sh)"
@@ -98,7 +99,7 @@ _plan_all() {
 # the xvei files both modes remove; the code goes last
 _remove_xvei_files() {
     rm -f "$XVEI_STATE" "$XVEI_STATE.bak"
-    rm -rf "$XVEI_MARKERS" "$XVEI_PKG_LIST" "$LEGACY_CLIENT_DIR"
+    rm -rf "$XVEI_MARKERS" "$XVEI_PKG_LIST" "$LEGACY_CLIENT_DIR" "$XRAY_DIR/xvei-backups"
     rmdir /var/lib/xvei 2>/dev/null || true
     if [ "$(readlink -f /usr/local/bin/xvei 2>/dev/null)" = "$(readlink -f "$XVEI_ROOT/xvei.sh")" ]; then
         rm -f /usr/local/bin/xvei

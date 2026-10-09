@@ -66,6 +66,8 @@ def blank_state() -> dict:
         "turnable": None,
         # display names from the share links outbounds were added from
         "outbound_names": {},
+        # how many backups of config.json + state to keep (0: automatic off)
+        "backups_keep": 20,
     }
 
 

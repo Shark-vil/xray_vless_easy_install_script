@@ -17,6 +17,7 @@ import os
 import re
 import sys
 
+import backups
 import editor
 import hy2conf
 import turnconf
@@ -30,6 +31,9 @@ import xrayconf as xc
 
 HY2_CONFIG_DEFAULT = "/etc/hysteria/config.yaml"
 
+# what the automatic backup before a change is labelled with (set in main)
+_REASON = ""
+
 
 def _load() -> dict:
     return st.load()
@@ -39,9 +43,13 @@ def _cfg(*, pending: bool = False) -> dict:
     return xc.load(pending=pending)
 
 
-def _finish(changed: bool, data: dict, cfg: dict | None = None) -> int:
-    """Save the state, stage the changed config; 0 if anything changed."""
+def _finish(changed: bool, data: dict, cfg: dict | None = None, *,
+            backup: bool = True) -> int:
+    """Back up what is on disk now, save the state, stage the changed
+    config; 0 if anything changed."""
     if changed:
+        if backup:
+            backups.create(_REASON)
         st.save(data)
         if cfg is not None:
             xc.save_pending(cfg)
@@ -210,7 +218,10 @@ def cmd_set_meta(a) -> int:
         data["cert"]["fullchain"] = a.cert_fullchain
     if a.cert_privkey is not None:
         data["cert"]["privkey"] = a.cert_privkey
-    return _finish(json.dumps(data, sort_keys=True) != before, data)
+    # the server IP is refreshed on every apply: no backup for that alone
+    only_ip = all(getattr(a, k) is None for k in (
+        "domain", "email", "cert_mode", "cert_fullchain", "cert_privkey"))
+    return _finish(json.dumps(data, sort_keys=True) != before, data, backup=not only_ip)
 
 
 def cmd_add_inbound(a) -> int:
@@ -288,7 +299,9 @@ def cmd_menu(a) -> int:
         "rules": editor.menu_rules,
         "template": editor.menu_template,
         "site": editor.menu_site,
-    }[a.section]
+    }.get(a.section)
+    if fn is None:  # backups: restoring stages the config itself
+        return 0 if backups.menu(data) else 2
     return _finish(fn(data, cfg), data, cfg)
 
 
@@ -308,6 +321,55 @@ def cmd_site(a) -> int:
         return 2
     # the site lives in nginx, config.json stays as it is
     return _finish(editor.set_site(data, _cfg(), a.kind, a.url), data)
+
+
+def cmd_backup_create(a) -> int:
+    bid = backups.create("manual" + (f": {' '.join(a.note)}" if a.note else ""), force=True)
+    if bid:
+        util.ok(f"backup {bid} created in {backups.backup_dir()}")
+    return 0
+
+
+def cmd_backup_list(a) -> int:
+    pages = backups.print_page(a.page - 1)
+    if pages > 1:
+        print(util.paint(f"\n  more: xvei backup list <page 1..{pages}>", util.DIM))
+    return 0
+
+
+def cmd_backup_show(a) -> int:
+    backups.pager(backups.show_text(backups.resolve(a.ref)))
+    return 0
+
+
+def cmd_backup_diff(a) -> int:
+    backups.pager(backups.diff_text(backups.resolve(a.ref)))
+    return 0
+
+
+def cmd_backup_restore(a) -> int:
+    bid = backups.resolve(a.ref)
+    if not a.yes and not util.confirm(
+            f"Restore config.json and the xvei state from {bid}? "
+            "The current ones are backed up first", default_yes=False):
+        return 2
+    backups.restore(bid)
+    return 0
+
+
+def cmd_backup_delete(a) -> int:
+    backups.delete(backups.resolve(a.ref))
+    return 0
+
+
+def cmd_backup_keep(a) -> int:
+    if a.n is None:
+        print(backups.keep_limit(_load()))
+        return 0
+    if a.n < 0:
+        util.die("the number of backups to keep must be 0 or more")
+    backups.set_keep(a.n)
+    return 0
 
 
 def cmd_nginx_conf(_a) -> int:
@@ -567,7 +629,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     mn = sub.add_parser("menu")
     mn.add_argument("section",
-                    choices=["inbounds", "outbounds", "rules", "template", "site"])
+                    choices=["inbounds", "outbounds", "rules", "template", "site", "backups"])
     mn.set_defaults(fn=cmd_menu)
 
     stp = sub.add_parser("site")
@@ -576,6 +638,25 @@ def build_parser() -> argparse.ArgumentParser:
     stp.add_argument("url", nargs="?", default=None, help="upstream for 'proxy'")
     stp.set_defaults(fn=cmd_site)
 
+    bc = sub.add_parser("backup-create")
+    bc.add_argument("note", nargs="*")
+    bc.set_defaults(fn=cmd_backup_create)
+    bl = sub.add_parser("backup-list")
+    bl.add_argument("page", nargs="?", type=int, default=1)
+    bl.set_defaults(fn=cmd_backup_list)
+    for name, fn in (("backup-show", cmd_backup_show), ("backup-diff", cmd_backup_diff),
+                     ("backup-delete", cmd_backup_delete)):
+        x = sub.add_parser(name)
+        x.add_argument("ref", help="number in the list (1 = newest) or backup id")
+        x.set_defaults(fn=fn)
+    br = sub.add_parser("backup-restore")
+    br.add_argument("ref")
+    br.add_argument("--yes", action="store_true")
+    br.set_defaults(fn=cmd_backup_restore)
+    bk = sub.add_parser("backup-keep")
+    bk.add_argument("n", nargs="?", type=int, default=None)
+    bk.set_defaults(fn=cmd_backup_keep)
+
     sub.add_parser("nginx-conf").set_defaults(fn=cmd_nginx_conf)
     sub.add_parser("site-assets").set_defaults(fn=cmd_site_assets)
 
@@ -583,6 +664,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str]) -> int:
+    global _REASON
+    # share links carry credentials: keep them out of backup labels
+    _REASON = " ".join(a for a in argv if "://" not in a)[:80]
     args = build_parser().parse_args(argv)
     try:
         return args.fn(args)

@@ -151,6 +151,11 @@ xvei - a simple Xray server setup manager
        open:   add allow rules for the ports xvei needs (active ufw/firewalld)
        setup:  opt-in "deny incoming except SSH + xvei ports" (asks first)
   xvei set-meta [--domain D --email E ...]
+  xvei backup [list [PAGE] | create [NOTE] | show N | diff N | restore N | delete N | keep [N]]
+                           backups of config.json + xvei state, made before every
+                           change: list (10 a page, 1 = newest), view, compare with
+                           the current config, roll back; keep N (default 20,
+                           0 = automatic backups off)
   xvei check-updates       compare xvei / xray / hysteria2 / geo data with the
                            latest releases and offer to update
   xvei update-geo          refresh geoip/geosite
@@ -194,6 +199,17 @@ case "$cmd" in
     check-updates)       check_updates ;;
     update-geo)          require_root; xray_update_geo; xray_restart; ok "geo updated" ;;
     self-update)         self_update ;;
+    backup)              require_root
+                         case "${1:-list}" in
+                             list)    py backup-list "${2:-1}" ;;
+                             create)  shift; py backup-create "$@" ;;
+                             show)    py backup-show "${2:?usage: xvei backup show <N>}" ;;
+                             diff)    py backup-diff "${2:?usage: xvei backup diff <N>}" ;;
+                             restore) _apply_after backup-restore "${2:?usage: xvei backup restore <N> [--yes]}" ${3:+"$3"} ;;
+                             delete)  py backup-delete "${2:?usage: xvei backup delete <N>}" ;;
+                             keep)    py backup-keep ${2:+"$2"} ;;
+                             *)       die "usage: xvei backup [list|create|show|diff|restore|delete|keep]" ;;
+                         esac ;;
     remove|uninstall)    xvei_remove "$@" ;;
     _renew-hook)         require_root; cert_renew_hook_run ;;
     help|-h|--help)      print_help ;;

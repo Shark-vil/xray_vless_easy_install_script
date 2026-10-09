@@ -92,7 +92,8 @@ main_menu() {
         ui_group "Maintenance"
         ui_opt 9 "Firewall" "open ports / lockdown (optional)"
         ui_opt 10 "Updates" "xvei / xray / hysteria2 / geo data"
-        ui_opt 11 "Uninstall xvei"
+        ui_opt 11 "Backups" "view / compare / roll back / back up now"
+        ui_opt 12 "Uninstall xvei"
         ui_back Exit
         local c; c="$(read_value "Choose" 0)"
         case "$c" in
@@ -106,7 +107,8 @@ main_menu() {
             8) show_config ;;
             9) menu_firewall ;;
             10) check_updates ;;
-            11) xvei_remove && exit 0 ;;
+            11) py menu backups;  _menu_apply_if_changed $? ;;
+            12) xvei_remove && exit 0 ;;
             0|"") return 0 ;;
             *) warn "unknown choice" ;;
         esac

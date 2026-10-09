@@ -19,6 +19,34 @@ install all of them (`all`, the default), none (`none`) or only some — list
 names from the prompt, e.g. `geo` or `xray geo`. xvei is updated last; run
 `xvei` again afterwards. In a git clone xvei is updated with `git pull`.
 
+## Backups and rollback
+
+Before every change made through xvei (inbounds, outbounds, rules, template,
+site, domain) and before a rollback, xvei backs up `config.json` exactly as it
+is (comments included) together with its own state, into
+`/usr/local/etc/xray/xvei-backups/`. A backup identical to the newest one is
+not made twice. A hand edit of `config.json` gets into the backup made before
+the next change through xvei; to keep the config as it is before editing it by
+hand, run `xvei backup create "note"` first.
+
+Menu: `xvei` → `11) Backups` — the list, 10 a page (`n` / `p` to turn pages),
+newest first. Open one to view its `config.json`, see what restoring it would
+change (a diff against the current config), restore or delete it; `c` backs
+up the current config now, `k` sets how many backups to keep.
+
+```bash
+xvei backup                 # list (xvei backup list 2 - the second page)
+xvei backup create "before tests"
+xvei backup diff 3          # what restoring backup 3 would change
+xvei backup restore 3       # asks first; the current config is backed up before
+xvei backup keep 50         # keep 50; 0 turns the automatic backups off
+```
+
+A restore is applied like any other change: `xray -test` checks it first and
+the live config stays as it is if the check fails. The oldest backups are
+deleted beyond the limit (20 by default). With `keep 0` nothing is backed up
+automatically and nothing is deleted; `xvei backup create` still works.
+
 ## Firewall
 
 xvei **never enables, resets or tightens a firewall by itself** — a wrong
@@ -51,7 +79,7 @@ renewal challenge only if it holds `:80`, then start it again.
 
 ## Uninstalling
 
-`xvei remove` (menu: `11) Uninstall xvei`) removes only xvei; `xvei remove
+`xvei remove` (menu: `12) Uninstall xvei`) removes only xvei; `xvei remove
 --all` removes it together with what it set up. Both show the full list first
 and do nothing until you confirm (the default answer is "no"):
 
@@ -82,6 +110,7 @@ clone is not deleted; remove its folder yourself.
 | path | contents |
 |---|---|
 | `/usr/local/etc/xray/config.json` | the Xray config, source of truth; edit by hand or through xvei (`.bak` kept) |
+| `/usr/local/etc/xray/xvei-backups/` | backups of config.json + state (`xvei backup`) |
 | `/usr/local/etc/xray/xvei-state.json` | what config.json cannot hold: domain, certificate, site, Hysteria2 / Turnable (root, `0600`) |
 | `/usr/local/etc/xray/config.json.xvei-orig` | adopted setups: the config as it was before xvei |
 | `/etc/hysteria/config.yaml` | generated Hysteria2 config (+ `cert.crt`/`cert.key`) |
