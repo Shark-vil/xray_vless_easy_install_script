@@ -1,17 +1,25 @@
 """State-mutating operations. Each returns True when the state changed."""
 from __future__ import annotations
 
+import os
+import re
+
 import inbounds as ibmod
+import proxylinks
 import reality
 import sites
 import state as st
 import util
 
 
+# lib/hysteria2.sh touches this when xvei itself set up Hysteria2
+HY2_MARKER = "/var/lib/xvei/managed/hysteria2"
+
+
 def _used_ports(data: dict) -> set[int]:
-    ports: set[int] = set()
+    ports: set[int] = st.base_ports(data)
     for ib in data["inbounds"]:
-        for key in ("port", "socks_port"):
+        for key in ("port", "socks_port", "local_port"):
             if isinstance(ib.get(key), int):
                 ports.add(ib[key])
     return ports
@@ -33,9 +41,19 @@ def _ensure_domain(data: dict) -> None:
 
 def _new_inbound(data: dict, itype: str, opts: dict) -> dict:
     tag = opts.get("tag") or ibmod.default_tag(itype)
-    if st.inbound_by_tag(data, tag):
-        util.die(f"inbound tag {tag!r} already exists")
-    if itype in ("vless-tls", "vless-ws", "vless-xhttp-tls"):
+    if st.inbound_by_tag(data, tag) or tag in st.base_tags(data):
+        util.die(f"inbound tag {tag!r} already exists (use --tag)")
+    needs_443 = itype == "vless-tls" or (
+        itype == "vless-xhttp-tls" and not st.has_type(data, "vless-tls"))
+    if needs_443 and 443 in st.base_ports(data):
+        util.die(f"{itype} needs port 443, which an existing inbound of the "
+                 "adopted config already uses")
+    if (itype == "hysteria2" and data.get("adopted")
+            and os.path.exists("/etc/hysteria/config.yaml")
+            and not os.path.exists(HY2_MARKER)):
+        util.die("Hysteria2 is already configured on this server outside xvei "
+                 "(/etc/hysteria/config.yaml); xvei will not overwrite it")
+    if itype in st.TLS_TYPES:
         _ensure_domain(data)
     ib: dict = {"type": itype, "tag": tag, "uuid": util.new_uuid(),
                 "email": data.get("email") or "user@xvei"}
@@ -47,10 +65,13 @@ def _new_inbound(data: dict, itype: str, opts: dict) -> dict:
         if x and x.get("standalone"):
             x.pop("standalone", None)
             x.pop("port", None)
-    elif itype == "vless-ws":
+    elif itype in st.FALLBACK_TYPES:
         if not st.has_type(data, "vless-tls"):
-            util.die("vless-ws needs vless-tls first (it rides its :443 fallback)")
-        ib["ws_path"] = util.token(12)
+            util.die(f"{itype} needs vless-tls first (it rides its :443 fallback)")
+        if itype != "trojan-tcp":
+            ib["ws_path"] = util.token(12)
+        if itype.startswith("trojan"):
+            ib["password"] = util.token(16)
     elif itype == "vless-xhttp-reality":
         used = _used_ports(data)
         default_port = "443" if 443 not in used else "8443"
@@ -88,6 +109,23 @@ def _new_inbound(data: dict, itype: str, opts: dict) -> dict:
                   password=util.rand_password(16),
                   up_mbps=int(opts.get("up_mbps") or 0),
                   down_mbps=int(opts.get("down_mbps") or 0))
+    elif itype == "turnable":
+        util.warn("Turnable is UNSTABLE and NOT anonymous: VK relays the traffic "
+                  "and sees this server's real IP address; VK can break it at any time.")
+        used = _used_ports(data)
+        port = int(opts.get("port") or util.prompt("Turnable UDP port", "56000"))
+        if port in used:
+            util.die(f"port {port} already used")
+        raw = opts.get("dest") or util.prompt(
+            "VK call link or ID (any public https://vk.com/call/join/... link)")
+        call_id = raw.strip().rstrip("/").split("/call/join/")[-1].split("?")[0]
+        if not re.fullmatch(r"[A-Za-z0-9_-]{4,}", call_id):
+            util.die("not a VK call link or ID")
+        local_port = 10900
+        while local_port in used:
+            local_port += 1
+        ib.update(port=port, call_id=call_id, local_port=local_port,
+                  turnable_uuid=util.new_uuid(), peers=5)
     else:
         util.die(f"unknown inbound type {itype!r}")
     return ib
@@ -111,7 +149,7 @@ def remove_inbound(data: dict, tag: str) -> bool:
         util.die(f"no inbound tagged {tag!r}")
     if ib["type"] == "vless-tls":
         deps = [x["tag"] for x in data["inbounds"]
-                if x["type"] in ("vless-ws",) or
+                if x["type"] in st.FALLBACK_TYPES or
                 (x["type"] == "vless-xhttp-tls" and not x.get("standalone"))]
         if deps:
             util.die(f"remove {', '.join(deps)} first (they ride vless-tls)")
@@ -141,9 +179,57 @@ def set_outbound(data: dict, name: str, on: bool) -> bool:
     return True
 
 
+_RESERVED_TAGS = {"direct", "block", "warp", "tor", "warp_proxy", "tor_proxy"}
+
+
+def _next_tag(data: dict, proto: str) -> str:
+    proto = {"shadowsocks": "ss"}.get(proto, proto)
+    taken = (set(st.custom_tags(data)) | {ib["tag"] for ib in data["inbounds"]}
+             | st.base_tags(data))
+    n = 1
+    while f"{proto}{n}" in taken:
+        n += 1
+    return f"{proto}{n}"
+
+
+def add_custom_outbound(data: dict, link: str, tag: str | None = None) -> bool:
+    ob, name = proxylinks.parse(link)
+    link = link.strip()
+    for c in data["custom_outbounds"]:
+        if c["outbound"] == ob:  # same server + settings, whatever the #name
+            util.warn(f"this outbound is already added as {c['tag']!r}")
+            return False
+    tag = tag or _next_tag(data, ob["protocol"])
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", tag):
+        util.die("tag may only contain letters, digits, '_' and '-' (max 32)")
+    if (tag in _RESERVED_TAGS or st.custom_outbound(data, tag)
+            or st.inbound_by_tag(data, tag) or tag in st.base_tags(data)):
+        util.die(f"tag {tag!r} is already taken")
+    data["custom_outbounds"].append({"tag": tag, "name": name, "link": link, "outbound": ob})
+    data["rules"].setdefault(tag, [])
+    util.ok(f"added outbound {tag}: {proxylinks.describe(ob)}" + (f" ({name})" if name else ""))
+    return True
+
+
+def remove_custom_outbound(data: dict, tag: str) -> bool:
+    if not st.custom_outbound(data, tag):
+        util.die(f"no outbound tagged {tag!r}")
+    r = data["routing"]
+    if r.get("tunnel") == tag:
+        util.die(f"{tag} is the active tunnel; switch the template first "
+                 f"(template {r.get('template', 'none')} --direct)")
+    if r.get("country_exit") == tag:
+        util.die(f"{tag} is the exit for in-country traffic; switch the template "
+                 f"first (template {r.get('template')} --exit block|warp|tor)")
+    data["custom_outbounds"] = [c for c in data["custom_outbounds"] if c["tag"] != tag]
+    data["rules"].pop(tag, None)
+    util.ok(f"removed outbound {tag}")
+    return True
+
+
 def rule_op(data: dict, op: str, bucket: str, matches: list[str]) -> bool:
-    if bucket not in st.RULE_BUCKETS:
-        util.die(f"bucket must be one of {', '.join(st.RULE_BUCKETS)}")
+    if bucket not in st.rule_buckets(data):
+        util.die(f"bucket must be one of {', '.join(st.rule_buckets(data))}")
     if bucket in ("warp", "tor") and not data["outbounds"][bucket]:
         util.die(f"enable the {bucket} outbound first (add-outbound {bucket})")
     cur = data["rules"].setdefault(bucket, [])
@@ -179,43 +265,46 @@ def set_template(data: dict, template: str, *, country_exit: str | None = None,
     r = data["routing"]
     before = dict(r)
 
+    tunnels = st.tunnel_names(data)
+    modes = ("direct", "tunnel") + (("keep",) if data.get("adopted") else ())
+
+    def need_tunnel(msg: str) -> None:
+        if tunnel not in tunnels:
+            util.die(f"{msg} --tunnel {'|'.join(tunnels)}")
+        if tunnel in ("warp", "tor"):
+            data["outbounds"][tunnel] = True
+
     if template in st.COUNTRY_TEMPLATES:
-        if country_exit not in ("warp", "tor", "block"):
-            util.die("country templates need --exit warp|tor|block "
+        if country_exit not in ["block"] + tunnels:
+            util.die(f"country templates need --exit {'|'.join(['block'] + tunnels)} "
                       "(in-country traffic is never sent direct from the server "
                       "-- that would expose its real IP)")
         if country_exit in ("warp", "tor"):
             data["outbounds"][country_exit] = True
         mode = mode or r.get("mode") or "direct"
-        if mode not in ("direct", "tunnel"):
-            util.die("mode must be 'direct' or 'tunnel'")
+        if mode not in modes:
+            util.die(f"mode must be one of: {', '.join(modes)}")
         if mode == "tunnel":
-            if tunnel not in ("warp", "tor"):
-                util.die("tunnel mode needs --tunnel warp|tor")
-            data["outbounds"][tunnel] = True
+            need_tunnel("tunnel mode needs")
         r["template"] = template
         r["country_exit"] = country_exit
         r["mode"] = mode
         r["tunnel"] = tunnel if mode == "tunnel" else None
 
     elif template == "popular":
-        if tunnel not in ("warp", "tor"):
-            util.die("the 'popular' template needs --tunnel warp|tor "
-                      "(everything outside the popular list goes through it)")
-        data["outbounds"][tunnel] = True
+        need_tunnel("the 'popular' template sends everything outside the popular "
+                    "list through a tunnel; it needs")
         r["template"] = "popular"
         r["country_exit"] = None
         r["mode"] = "tunnel"
         r["tunnel"] = tunnel
 
     else:  # none
-        mode = mode or "direct"
-        if mode not in ("direct", "tunnel"):
-            util.die("mode must be 'direct' or 'tunnel'")
+        mode = mode or ("keep" if data.get("adopted") else "direct")
+        if mode not in modes:
+            util.die(f"mode must be one of: {', '.join(modes)}")
         if mode == "tunnel":
-            if tunnel not in ("warp", "tor"):
-                util.die("tunnel mode needs --tunnel warp|tor")
-            data["outbounds"][tunnel] = True
+            need_tunnel("tunnel mode needs")
         r["template"] = "none"
         r["country_exit"] = None
         r["mode"] = mode
@@ -305,8 +394,12 @@ def menu_inbounds(data: dict) -> bool:
                 ("vless-ws", "VLESS WebSocket (fallback on :443)"),
                 ("vless-xhttp-reality", "VLESS XHTTP + REALITY (site masquerade, no domain)"),
                 ("vless-xhttp-tls", "VLESS XHTTP + TLS certificate"),
+                ("trojan-tcp", "Trojan (TCP, shares :443 via fallback, legacy)"),
+                ("trojan-ws", "Trojan WebSocket (fallback on :443, legacy)"),
+                ("vmess-ws", "VMess WebSocket (fallback on :443, legacy)"),
                 ("shadowsocks", "Shadowsocks"),
                 ("hysteria2", "Hysteria2 (via local SOCKS5 -> Xray)"),
+                ("turnable", "Turnable via VK calls (UNSTABLE, NOT anonymous: VK sees the server IP)"),
             ])
             if add_inbound(data, itype):
                 return True
@@ -318,18 +411,50 @@ def menu_inbounds(data: dict) -> bool:
                 return True
 
 
+def _custom_label(c: dict) -> str:
+    return f"{c['tag']} ({proxylinks.describe(c['outbound'])})" + (
+        f" {c['name']}" if c.get("name") else "")
+
+
+def _tunnel_options(data: dict) -> list[tuple[str, str]]:
+    return [("warp", "WARP (Cloudflare)"), ("tor", "TOR")] + [
+        (c["tag"], _custom_label(c)) for c in data["custom_outbounds"]]
+
+
 def menu_outbounds(data: dict) -> bool:
     while True:
         print("\n-- Outbounds --")
         print(f"  WARP: {'on' if data['outbounds']['warp'] else 'off'}")
         print(f"  TOR : {'on' if data['outbounds']['tor'] else 'off'}")
-        act = util.choose("Action", [
+        for c in data["custom_outbounds"]:
+            print(f"  {_custom_label(c)}")
+        acts = [
             ("warp", "Toggle WARP"),
             ("tor", "Toggle TOR"),
-            ("back", "Back"),
-        ], "back")
+            ("add", "Add from share link (vless / vmess / trojan / ss / socks5 / http)"),
+        ]
+        if data["custom_outbounds"]:
+            acts.append(("del", "Remove an added outbound"))
+        acts.append(("back", "Back"))
+        act = util.choose("Action", acts, "back")
         if act == "back":
             return False
+        if act == "add":
+            link = util.prompt("Share link")
+            if not link:
+                continue
+            ob, _name = proxylinks.parse(link)
+            tag = util.prompt("Tag (used in rules and templates)",
+                              _next_tag(data, ob["protocol"]))
+            if add_custom_outbound(data, link, tag):
+                return True
+            continue
+        if act == "del":
+            tag = util.choose("Remove which",
+                              [(c["tag"], _custom_label(c)) for c in data["custom_outbounds"]])
+            if remove_custom_outbound(data, tag):
+                return True
+            continue
         cur = data["outbounds"][act]
         if set_outbound(data, act, not cur):
             return True
@@ -341,6 +466,7 @@ def menu_rules(data: dict) -> bool:
         buckets.append("warp")
     if data["outbounds"]["tor"]:
         buckets.append("tor")
+    buckets += st.custom_tags(data)
     while True:
         print("\n-- Routing rules --")
         for b in buckets:
@@ -354,43 +480,46 @@ def menu_rules(data: dict) -> bool:
             return True
 
 
+def _mode_options(data: dict, opts: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    if data.get("adopted"):
+        return [("keep", "Keep the existing config's own default")] + opts
+    return opts
+
+
 def menu_template(data: dict) -> bool:
     r = data["routing"]
     template = util.choose("Template", [
-        ("russia", "Russia (geoip:ru + category-ru -> WARP/TOR/block, never direct)"),
-        ("iran", "Iran (geoip:ir + category-ir -> WARP/TOR/block, never direct)"),
-        ("china", "China (geoip:cn + geosite:cn -> WARP/TOR/block, never direct)"),
-        ("popular", "Popular direct (YouTube/Instagram/... direct, rest via WARP/TOR)"),
+        ("russia", "Russia (geoip:ru + category-ru -> tunnel/block, never direct)"),
+        ("iran", "Iran (geoip:ir + category-ir -> tunnel/block, never direct)"),
+        ("china", "China (geoip:cn + geosite:cn -> tunnel/block, never direct)"),
+        ("popular", "Popular direct (YouTube/Instagram/... direct, rest via a tunnel)"),
         ("none", "None (only private direct)"),
     ], r.get("template") or "none")
 
     if template in st.COUNTRY_TEMPLATES:
         country_exit = util.choose(
             "In-country traffic exits via",
-            [("warp", "WARP (Cloudflare)"), ("tor", "TOR"), ("block", "Block outright")],
+            _tunnel_options(data) + [("block", "Block outright")],
             r.get("country_exit") or "block")
-        mode = util.choose("Exit mode for everything else", [
+        mode = util.choose("Exit mode for everything else", _mode_options(data, [
             ("direct", "Direct"),
-            ("tunnel", "Through a tunnel (WARP/TOR)"),
-        ], r.get("mode") or "direct")
+            ("tunnel", "Through a tunnel (WARP/TOR/added outbound)"),
+        ]), r.get("mode") or "direct")
         tunnel = None
         if mode == "tunnel":
-            tunnel = util.choose("Tunnel", [("warp", "WARP (Cloudflare)"), ("tor", "TOR")],
-                                  r.get("tunnel") or "warp")
+            tunnel = util.choose("Tunnel", _tunnel_options(data), r.get("tunnel") or "warp")
         return set_template(data, template, country_exit=country_exit, mode=mode, tunnel=tunnel)
 
     if template == "popular":
         tunnel = util.choose("Tunnel for everything outside the popular list",
-                              [("warp", "WARP (Cloudflare)"), ("tor", "TOR")],
-                              r.get("tunnel") or "warp")
+                              _tunnel_options(data), r.get("tunnel") or "warp")
         return set_template(data, template, tunnel=tunnel)
 
-    mode = util.choose("Exit mode", [
+    mode = util.choose("Exit mode", _mode_options(data, [
         ("direct", "Everything direct"),
-        ("tunnel", "Everything through a tunnel (WARP/TOR)"),
-    ], r.get("mode") or "direct")
+        ("tunnel", "Everything through a tunnel (WARP/TOR/added outbound)"),
+    ]), r.get("mode") or "direct")
     tunnel = None
     if mode == "tunnel":
-        tunnel = util.choose("Tunnel", [("warp", "WARP (Cloudflare)"), ("tor", "TOR")],
-                              r.get("tunnel") or "warp")
+        tunnel = util.choose("Tunnel", _tunnel_options(data), r.get("tunnel") or "warp")
     return set_template(data, template, mode=mode, tunnel=tunnel)

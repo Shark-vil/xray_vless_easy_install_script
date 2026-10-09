@@ -26,12 +26,126 @@ XVEI ставит и настраивает [Xray-core](https://github.com/XTLS/
 | `vless-ws` | VLESS + WebSocket через фолбэк `:443` (нужен `vless-tls`) |
 | `vless-xhttp-reality` | VLESS + XHTTP + **REALITY** — маскировка под чужой сайт, **домен и сертификат НЕ нужны** |
 | `vless-xhttp-tls` | VLESS + XHTTP + TLS-сертификат (делит `:443` или отдельный порт) |
+| `trojan-tcp` | Trojan + TCP, делит `:443` с `vless-tls`: всё, что не VLESS, уходит в Trojan, всё, что не Trojan, — на сайт-прикрытие. Клиент должен использовать ALPN `http/1.1` (задан в сгенерированной ссылке) |
+| `trojan-ws` | Trojan + WebSocket через фолбэк `:443` (нужен `vless-tls`) |
+| `vmess-ws` | VMess (AEAD) + WebSocket через фолбэк `:443` (нужен `vless-tls`); часы сервера должны быть точны до ±120 с |
 | `shadowsocks` | Shadowsocks 2022 / legacy шифры |
 | `hysteria2` | Hysteria2 на `:443/udp`; **весь его трафик уходит в локальный SOCKS5-inbound Xray**, поэтому маршрутизацию делает Xray |
+| `turnable` | ⚠️ **Нестабильно, не анонимно.** Туннель через TURN-серверы звонков VK в локальный VLESS-inbound; **VK видит IP сервера**. См. [Turnable](#turnable-звонки-vk--нестабильно-не-анонимно) |
+
+### Какой inbound выбрать (2026)
+
+| inbound | статус | почему |
+|---|---|---|
+| `vless-xhttp-reality` | ✅ рекомендуется | Домен и сертификат не нужны; TLS-рукопожатие настоящее, заимствованное у крупного сайта, трафик XHTTP выглядит как обычные HTTP-запросы |
+| `vless-tls` (Vision) | ✅ рекомендуется | Свой домен и сертификат, на том же адресе работает сайт; Vision убирает характерный признак «TLS внутри TLS» |
+| `vless-xhttp-tls` | ✅ рекомендуется | Как `vless-tls`, трафик в форме HTTP; может работать через CDN |
+| `vless-ws` | 🟡 по ситуации | Нужен в основном для CDN, которые пропускают только WebSocket; переход на WebSocket — хорошо известный шаблон, XHTTP предпочтительнее |
+| `hysteria2` | 🟡 по ситуации | Быстрый на каналах с потерями; в части сетей UDP/QUIC замедляется или режется целиком |
+| `trojan-tcp`, `trojan-ws` | 🟠 устаревает | Сам Xray помечает Trojan как устаревший (сообщение при запуске) и рекомендует VLESS; без Vision остаётся признак «TLS внутри TLS»; оставлять для клиентов, которые умеют только Trojan |
+| `vmess-ws` | 🟠 устаревает | Устарел в Xray (сообщение при запуске), нет forward secrecy, зависит от точности часов; только для старых клиентов |
+| `shadowsocks` (2022 / AEAD) | 🔴 слабо в сетях с фильтрацией | Полностью случайный на вид трафик распознаётся по статистике байтов (задокументировано с 2021 года); подходит для сетей без фильтрации |
+| `turnable` | ⚠️ экспериментально | Нестабильно (зависит от анонимного доступа к звонкам VK) и не анонимно: VK видит IP сервера; около 250 KB/s на соединение |
+
+Статусы основаны на собственных предупреждениях Xray об устаревании и
+публичных измерениях на 2026 год; ситуация отличается между странами и
+провайдерами. Практичный набор: `vless-xhttp-reality` плюс `vless-tls`, и
+`hysteria2` как быстрый дополнительный вариант там, где работает UDP.
+
+### Turnable (звонки VK) — нестабильно, не анонимно
+
+> [!WARNING]
+> **Этот способ раскрывает IP-адрес сервера.** Трафик идёт через TURN-серверы
+> звонков VK, поэтому VK видит и может записывать реальный IP этого сервера и
+> время его использования — ровно то, от чего защищают шаблоны стран. Кроме
+> того, способ **нестабилен**: он зависит от анонимного доступа к звонкам VK,
+> который VK может ограничить или сломать в любой момент (капча, лимиты).
+
+`turnable` использует [Turnable](https://github.com/TheAirBlow/Turnable/releases/latest) 0.6.4: клиент заходит в публичный
+звонок VK как анонимный гость и отправляет трафик через TURN-серверы VK на этот
+сервер, а тот передаёт его в локальный VLESS-inbound Xray (маршрутизацию делает
+Xray, как с Hysteria2). Аккаунт VK, App ID и пароль не нужны. Ограничения со
+стороны VK: около 250 KB/s на одно соединение, до 10 соединений с одного IP.
+
+На сервере ставится зафиксированная версия Turnable с проверкой sha256; xvei не
+обновляет её автоматически (`xvei check-updates` показывает, когда вышла новая).
+
+При добавлении спрашиваются UDP-порт (по умолчанию `56000`) и ссылка на любой
+публичный звонок VK (`https://vk.com/call/join/...`):
+
+```bash
+xvei add-inbound turnable --dest 'https://vk.com/call/join/CALL_ID'
+```
+
+На устройстве клиента работают две программы одновременно:
+
+1. Клиент Turnable со ссылкой `turnable://` из `xvei links`:
+
+```bash
+turnable client -l 127.0.0.1:1080 'turnable://...'
+```
+
+2. Прокси-приложение (v2rayNG, NekoBox, …) со второй ссылкой из `xvei links`:
+   `vless://` на `127.0.0.1:1080`.
+
+Если VK покажет капчу, клиент Turnable выведет локальный адрес с инструкцией,
+как пройти её в браузере. Формат конфигов Turnable меняется между версиями:
+если последний клиент не подключается, используйте клиент 0.6.4.
 
 ### Outbounds / туннели
-`direct`, `block` и опционально **WARP** (Cloudflare, docker) или **TOR** —
-второй прыжок, скрывающий IP сервера.
+`direct`, `block`, опционально **WARP** (Cloudflare, docker) или **TOR** —
+второй прыжок, скрывающий IP сервера, и **свои outbounds из share-ссылок**:
+
+* `vless://` — транспорты tcp / ws / grpc / xhttp / httpupgrade, security none / tls / reality;
+* `vmess://` — base64-JSON формата v2rayN или URL-формат, те же транспорты и security;
+* `trojan://` — те же транспорты и security, по умолчанию `tls`;
+* `ss://` — SIP002 (base64 или открытый `method:password`) и старый полностью base64-формат;
+  AEAD и 2022 шифры (`aes-128-gcm`, `aes-256-gcm`, `chacha20-ietf-poly1305`,
+  `xchacha20-ietf-poly1305`, `2022-blake3-*`);
+* `socks://`, `socks5://` — с `user:pass` или без (в том числе base64-формат v2rayN);
+* `http://`, `https://` — с `user:pass` или без.
+
+Не поддерживаются: `hysteria2://`; ссылки с `allowInsecure=1` (в актуальном
+Xray эта опция удалена); потоковые шифры Shadowsocks (`aes-256-cfb` и т.п.) и
+плагины; старый VMess с `alterId > 0`.
+
+Добавленный outbound получает тег (`vless1`, `socks1`, … или `--tag`). Тег
+используется как группа правил, как туннель шаблона (`--tunnel <тег>`) и как
+выход для внутристранового трафика (`--exit <тег>`). Часть ссылки после `#`
+показывается только как подпись.
+
+Добавить outbound (одинарные кавычки обязательны: в ссылке есть `&`):
+
+```bash
+xvei add-outbound 'vless://UUID@example.com:443?security=reality&sni=example.com&pbk=KEY&sid=ID&type=tcp&flow=xtls-rprx-vision' --tag fi
+```
+
+Добавить несколько сразу:
+
+```bash
+xvei add-outbound 'socks5://user:pass@203.0.113.30:1080' 'http://user:pass@203.0.113.40:8080'
+```
+
+Пустить через него трафик OpenAI:
+
+```bash
+xvei rule add fi geosite:openai
+```
+
+Пустить через него весь трафик:
+
+```bash
+xvei template none --tunnel fi
+```
+
+Удалить:
+
+```bash
+xvei remove-outbound fi
+```
+
+Outbound, который используется как туннель или выход шаблона, нельзя удалить,
+пока шаблон не переключён. Меню: `xvei` → `2) Outbounds` → `Add from share link`.
 
 ### Шаблоны маршрутизации
 Выбираются при установке (потом меняются через `xvei template`). Это правила
@@ -41,20 +155,20 @@ XVEI ставит и настраивает [Xray-core](https://github.com/XTLS/
   Внутристрановые адреса (`geoip:<cc>` + локальные категории `geosite`)
   **никогда** не идут напрямую с сервера — прямой выход VPS в сети РФ/Ирана/
   Китая палит его реальный IP перед этой сетью и рискует довести до блокировки.
-  Вместо этого такой трафик обязателен `--exit warp|tor|block`:
-  * `warp` / `tor` — уходит вторым прыжком, IP сервера не светится;
+  Вместо этого такой трафик обязателен `--exit warp|tor|block|<тег>`:
+  * `warp` / `tor` / добавленный outbound — уходит вторым прыжком, IP сервера не светится;
   * `block` — просто блокируется.
   Остальной (не внутристрановой) трафик идёт по обычному режиму выхода:
   * `--direct` — напрямую наружу;
-  * `--tunnel warp|tor` — через туннель.
+  * `--tunnel warp|tor|<тег>` — через туннель.
 * **Шаблон «Популярное напрямую»** — `popular`.
   Общемировые сервисы (`geosite:youtube`, `instagram`, `google`, `telegram`,
   `netflix`, `github` и т.д. — теги, которые есть практически в любой сборке
   geosite.dat) идут напрямую для скорости; весь остальной трафик обязателен
-  `--tunnel warp|tor`.
+  `--tunnel warp|tor|<тег>`.
 
 ### Редактируемые группы правил
-`block`, `direct`, `warp`, `tor` — добавляйте/удаляйте матчеры
+`block`, `direct`, `warp`, `tor` и по одной на каждый добавленный outbound (его тег) — добавляйте/удаляйте матчеры
 (`geosite:…`, `geoip:…`, `domain:…`, `1.2.3.0/24`, `regexp:…`) на лету.
 
 ### Сайт-прикрытие
@@ -71,17 +185,124 @@ XVEI ставит и настраивает [Xray-core](https://github.com/XTLS/
   редиректы), поэтому есть заготовки известных «проксируемых»: `example`, `rfc`,
   `cern`, `gnu`, `iana`.
 
+## Поддерживаемые системы
+
+| система | статус |
+|---|---|
+| Ubuntu 20.04 / 22.04 / 24.04 | ✅ поддерживается |
+| Debian 11 / 12 / 13 | ✅ поддерживается |
+| CentOS Stream 9 | ✅ поддерживается |
+| AlmaLinux / Rocky / RHEL 9, CentOS Stream 10, Fedora | ❓ неизвестно — не тестировалось, скорее всего работает |
+| CentOS 7, CentOS Stream 8, прочие EL8 | ❌ не поддерживается (EOL, Python 3.6) |
+| Alpine, системы без systemd | ❌ не поддерживается |
+
+На любой другой системе установщик предупредит и спросит, продолжать ли.
+
+Требования: root, systemd, Python ≥ 3.7 (ставится автоматически, если его
+нет). Всё остальное (xray, certbot, nginx, hysteria2, docker для WARP, tor)
+ставится по мере необходимости.
+
+На CentOS установщик дополнительно:
+* включает **EPEL** (certbot, tor и qrencode есть только там);
+* кладёт vhost nginx в `/etc/nginx/conf.d/`, а не в `sites-enabled/`;
+* при включённом SELinux помечает локальные порты nginx 8080/8081 как
+  `http_port_t` и включает `httpd_can_network_connect` для сайта-прикрытия в
+  режиме реверс-прокси;
+* включает `certbot-renew.timer` (там он по умолчанию выключен).
+
 ## Установка
+
+Нужен `curl`.
+
+Ubuntu / Debian:
 
 ```bash
 apt-get update && apt-get -y install curl
+```
+
+CentOS:
+
+```bash
+dnf -y install curl tar
+```
+
+### Полная установка
+
+Скачивает скрипт и запускает мастер установки: Xray и всё, что в нём выбрано
+(сертификат, nginx, Hysteria2, WARP, TOR).
+
+```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) install
 ```
 
-Первый запуск скачает дерево скриптов в `/usr/local/lib/xvei` и создаст симлинк
-`xvei` в `/usr/local/bin` — дальше достаточно команды `xvei`.
+### Только скрипт
+
+Скачивает скрипт в `/usr/local/lib/xvei` и создаёт команду `xvei`.
+Компоненты (Xray, сертификат, nginx и т.д.) не устанавливаются.
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Shark-vil/xray_vless_easy_install_script/master/xvei.sh) help
+```
+
+Запуск мастера установки:
+
+```bash
+xvei install
+```
+
+### Из git-клона
+
+```bash
+git clone https://github.com/Shark-vil/xray_vless_easy_install_script.git
+cd xray_vless_easy_install_script
+bash xvei.sh install
+```
+
+Команда `xvei` указывает на папку клона. Обновление — через `git pull`;
+`xvei self-update` в этом режиме недоступен.
+
+### Сервер с уже установленным Xray
+
+Если Xray уже установлен и есть `/usr/local/etc/xray/config.json`, но xvei
+никогда не настраивался, `xvei install` **принимает существующую настройку**:
+ничего не устанавливается (кроме Python, если его нет), не перезаписывается и
+не перезапускается. Конфиг читается как JSON5 (комментарии, висячие запятые) и
+сохраняется как основа состояния xvei.
+
+Дальше правки через xvei накладываются на этот конфиг:
+
+* существующие inbounds, outbounds, правила и все остальные секции (`log`,
+  `dns`, `api`, `stats`, `policy`, …) не меняются;
+* первый существующий outbound остаётся первым и остаётся маршрутом по
+  умолчанию;
+* правила и шаблоны xvei ставятся перед существующими правилами;
+* правило «всё остальное → …» не добавляется, пока режим выхода не выбран
+  явно (`xvei template none --keep` возвращает исходное поведение);
+* tor, контейнер WARP, Hysteria2 и nginx останавливаются или перенастраиваются,
+  только если их поднял сам xvei.
+
+Перед первой записью оригинал сохраняется как `config.json.xvei-orig` (вместе с
+комментариями; в пересобранном файле их нет). Если `config.json` правили
+вручную после записи xvei, xvei спросит перед перезаписью. `xvei remove`
+удаляет только добавленное xvei и предлагает вернуть оригинал.
+
+Не принимаются (ничего не меняется, выводится причина): Xray под управлением
+панели (x-ui / 3x-ui), `xray.service`, который читает конфиг из другого пути
+или использует `-confdir`.
+
+### Как работает однострочник
+
+`bash <(curl …)` скачивает только `xvei.sh`. Скрипт скачивает весь репозиторий
+в `/usr/local/lib/xvei`, создаёт симлинк `/usr/local/bin/xvei` →
+`/usr/local/lib/xvei/xvei.sh` и перезапускает себя с тем же аргументом. Без
+аргумента открывается меню с предложением установки.
+
+`xvei.sh` — файл репозитория, `xvei` — установленная команда:
+`xvei install` равносильно `bash /usr/local/lib/xvei/xvei.sh install`.
 
 ## Команды
+
+Скрипт вызывается командой `xvei`:
 
 ```
 xvei                     интерактивное меню (или предложит установку)
@@ -91,18 +312,21 @@ xvei apply               пересобрать + проверить + пере�
 
 xvei add-inbound  <тип> [--port N] [--dest SNI] [--method M]
 xvei remove-inbound <tag>
-xvei add-outbound   <warp|tor>
-xvei remove-outbound <warp|tor>
-xvei rule <add|remove|list> <block|warp|tor|direct> [матчер ...]
-xvei template <russia|iran|china> --exit <warp|tor|block> [--tunnel <warp|tor> | --direct]
-xvei template popular --tunnel <warp|tor>
-xvei template none [--tunnel <warp|tor> | --direct]
+xvei add-outbound   <warp|tor|LINK ...> [--tag T]
+xvei remove-outbound <warp|tor|TAG>
+xvei rule <add|remove|list> <block|direct|warp|tor|TAG> [матчер ...]
+xvei template <russia|iran|china> --exit <warp|tor|block|TAG> [--tunnel <warp|tor|TAG> | --direct]
+xvei template popular --tunnel <warp|tor|TAG>
+xvei template none [--tunnel <warp|tor|TAG> | --direct | --keep]
 xvei site [list | auth | blank | 404 | <заготовка> | proxy <url|preset>]
 
 xvei links [tag]         вывести клиентские ссылки
 xvei qr <tag>            QR-код для одного inbound
 xvei status              сервисы и активный шаблон
+xvei show-config [файл]  вывести config.json в читаемом виде (JSON5, комментарии сохраняются)
+xvei firewall [status | open | setup]   см. раздел «Файрвол» ниже
 xvei set-meta [--domain D --email E ...]
+xvei check-updates       проверить обновления xvei / xray / hysteria2 / geo-данных
 xvei update-geo          обновить geoip/geosite (необязательно; их ставит установщик xray)
 xvei self-update         перекачать дерево скриптов
 xvei remove              полное удаление
@@ -128,7 +352,48 @@ xvei site proxy gnu                        # реверс-прокси www.gnu.o
 Вместе с сертификатом ставится deploy-hook certbot
 (`/etc/letsencrypt/renewal-hooks/deploy/xvei-restart.sh`): после каждого
 продления Let's Encrypt он обновляет копию сертификата для Hysteria2 и
-перезапускает `xray`, `nginx` и `hysteria2`.
+перезапускает `xray`, `nginx` и `hysteria2`. Pre/post-хуки
+(`renewal-hooks/{pre,post}/xvei-free-port80.sh`) останавливают nginx на время
+проверки, только если он занимает `:80`, и затем запускают его обратно.
+
+## Обновления
+
+`xvei check-updates` (в меню: `10) Check for updates`) показывает установленную
+и последнюю версию каждого компонента и предлагает установить доступные
+обновления:
+
+| компонент | установлено | сравнивается с |
+|---|---|---|
+| xvei | установленный коммит | последний коммит `master` |
+| xray | `xray version` | последний релиз [XTLS/Xray-core](https://github.com/XTLS/Xray-core/releases) |
+| hysteria2 | `hysteria version` | последний релиз [apernet/hysteria](https://github.com/apernet/hysteria/releases) |
+| geoip.dat / geosite.dat | sha256 файла | контрольные суммы последнего релиза [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat/releases) |
+
+Неустановленные компоненты пропускаются. xvei обновляется последним, после
+этого запустите `xvei` заново. В git-клоне xvei обновляется через `git pull`.
+
+## Файрвол
+
+xvei **никогда сам не включает, не сбрасывает и не ужесточает файрвол**:
+неправильный default-deny может отрезать доступ по SSH (особенно если sshd
+висит на нестандартном порту).
+
+* Если **ufw** или **firewalld** уже включён и закрывает порты, нужные текущему
+  конфигу (порты inbounds и `80/tcp` для Let's Encrypt), при каждом применении
+  xvei покажет их и спросит, открыть ли. Это только *добавляет* разрешающие
+  правила. Без терминала — просто предупреждение.
+* `xvei firewall status` — какой файрвол активен, найденные SSH-порты и какие
+  нужные порты открыты/закрыты.
+* `xvei firewall open` — добавить разрешения для нужных портов (только если
+  файрвол уже включён).
+* `xvei firewall setup` — **опциональная** полная настройка: запретить все
+  входящие, кроме SSH и портов xvei. SSH-порт определяется по `sshd -T`, по
+  тому, что слушает sshd, и по текущей SSH-сессии. Сначала показывается весь
+  план, можно добавить свои порты (например `2222/tcp 27015/udp`), и без явного
+  «да» ничего не применяется. На Debian/Ubuntu — ufw (старые правила
+  сохраняются, если не выбрать `ufw reset`), на CentOS — firewalld.
+
+То же самое есть в меню: `xvei` → `9) Firewall`.
 
 ## Где что лежит
 
@@ -136,9 +401,13 @@ xvei site proxy gnu                        # реверс-прокси www.gnu.o
 |---|---|
 | `/usr/local/etc/xray/xvei-state.json` | источник правды (root, `0600`) |
 | `/usr/local/etc/xray/config.json` | сгенерированный конфиг Xray (`.bak` сохраняется) |
+| `/usr/local/etc/xray/config.json.xvei-orig` | принятая настройка: конфиг до xvei |
 | `/etc/hysteria/config.yaml` | сгенерированный конфиг Hysteria2 |
+| `/etc/nginx/sites-enabled/xvei.conf` (Debian/Ubuntu) или `/etc/nginx/conf.d/xvei.conf` (CentOS), `/var/www/xvei-site` | vhost фолбэка + сайт-прикрытие |
 | `~/xray_eis/<tag>.link` | клиентская ссылка на каждый inbound |
 | `~/xray_eis/<tag>.json` | полный клиентский конфиг Xray на каждый inbound |
+| `~/xray_eis/turnable.link`, `turnable.app.link` | ссылка `turnable://` для клиента Turnable и `vless://` для прокси-приложения |
+| `/etc/turnable/config.json`, `/usr/local/bin/turnable` | конфиг и программа сервера Turnable |
 
 ## Структура репозитория
 
@@ -154,6 +423,14 @@ assets/sites/*     автономные сайты-прикрытия (без в
 [v2rayNG](https://github.com/2dust/v2rayNG/releases/latest),
 [NekoBox / nekoray](https://github.com/MatsuriDayo/nekoray/releases/latest),
 [Hiddify](https://hiddify.com/). Для REALITY и XHTTP нужен свежий клиент.
+
+[Turnable](https://github.com/TheAirBlow/Turnable/releases/latest) — клиент для inbound `turnable` (Linux, Windows,
+macOS, Android через Termux).
+
+> [!CAUTION]
+> Клиентское приложение видит весь ваш трафик. Используйте только приложения,
+> которым доверяете, скачивайте их с официальных страниц и помните: любой
+> исполняемый файл вы устанавливаете на свой страх и риск.
 
 ## Совет по маршрутизации на клиенте
 

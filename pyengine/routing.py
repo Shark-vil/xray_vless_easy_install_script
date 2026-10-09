@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import outbounds as ob
+import state as st
 
 # Country -> (domain matchers, ip matchers) that identify "in-country" traffic.
 # This traffic is NEVER sent direct from the server: a VPS reaching straight
@@ -29,6 +30,17 @@ POPULAR_DOMAINS = [
 
 _EXIT_TAGS = {"warp": ob.TAG_WARP, "tor": ob.TAG_TOR, "block": ob.TAG_BLOCK,
               "direct": ob.TAG_DIRECT}
+
+
+
+def _exit_tag(data: dict, name: str | None) -> str | None:
+    """Outbound tag for warp / tor / block / direct or a custom outbound tag."""
+    if name in _EXIT_TAGS:
+        return _EXIT_TAGS[name]
+    if name and st.custom_outbound(data, name):
+        return name
+    return None
+
 
 _DOMAIN_PREFIXES = ("geosite:", "domain:", "full:", "regexp:", "keyword:")
 
@@ -75,14 +87,21 @@ def _rule(tag: str, items: list[str], *, extra: dict | None = None) -> list[dict
 
 
 def build(data: dict) -> dict:
+    """Routing section. For an adopted setup the existing routing is kept: its
+    rules run after xvei's own rules and template, its other keys (domain
+    strategy, balancers...) stay as they are, and no guardrails or catch-all
+    are added unless an exit mode was chosen explicitly (mode != "keep")."""
     routing = data["routing"]
+    adopted = bool(data.get("adopted"))
+    base = ((data.get("base") or {}).get("routing") or {}) if adopted else {}
     rules: list[dict] = []
 
     # 1. hard guardrails
-    rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK, "protocol": ["bittorrent"]})
-    rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK,
-                  "ip": ["geoip:private"], "network": "tcp,udp"})
-    rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK, "port": "135,137,138,139"})
+    if not adopted:
+        rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK, "protocol": ["bittorrent"]})
+        rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK,
+                      "ip": ["geoip:private"], "network": "tcp,udp"})
+        rules.append({"type": "field", "outboundTag": ob.TAG_BLOCK, "port": "135,137,138,139"})
 
     # 2. user edits (highest priority after guardrails)
     user = data.get("rules", {})
@@ -92,16 +111,17 @@ def build(data: dict) -> dict:
         rules += _rule(ob.TAG_WARP, user.get("warp", []))
     if data["outbounds"]["tor"]:
         rules += _rule(ob.TAG_TOR, user.get("tor", []))
+    for tag in st.custom_tags(data):
+        rules += _rule(tag, user.get(tag, []))
 
     template = routing.get("template") or "none"
 
     # 3. template rules
     if template in COUNTRY_MATCHERS:
-        # In-country traffic: WARP / TOR / block -- never direct.
+        # In-country traffic: WARP / TOR / custom outbound / block -- never direct.
         exit_name = routing.get("country_exit")
-        if exit_name not in ("warp", "tor", "block"):
-            exit_name = "block"
-        tag = _EXIT_TAGS[exit_name]
+        tag = None if exit_name == "direct" else _exit_tag(data, exit_name)
+        tag = tag or ob.TAG_BLOCK
         dom, ips = COUNTRY_MATCHERS[template]
         if dom:
             rules.append({"type": "field", "outboundTag": tag, "domain": dom})
@@ -111,15 +131,25 @@ def build(data: dict) -> dict:
         rules.append({"type": "field", "outboundTag": ob.TAG_DIRECT,
                       "domain": list(POPULAR_DOMAINS)})
 
+    # adopted: the existing rules, unchanged and in their original order
+    rules += [dict(x) for x in base.get("rules") or []]
+
     # 4. exit mode: everything else
     if template == "popular":
         # Everything outside the popular list goes through a tunnel.
-        tunnel = routing.get("tunnel") if routing.get("tunnel") in ("warp", "tor") else "warp"
-        rules.append({"type": "field", "outboundTag": _EXIT_TAGS[tunnel], "network": "tcp,udp"})
-    elif routing.get("mode") == "tunnel" and routing.get("tunnel") in ("warp", "tor"):
-        rules.append({"type": "field", "outboundTag": _EXIT_TAGS[routing["tunnel"]],
+        tag = _exit_tag(data, routing.get("tunnel")) or ob.TAG_WARP
+        rules.append({"type": "field", "outboundTag": tag, "network": "tcp,udp"})
+    elif routing.get("mode") == "tunnel" and _exit_tag(data, routing.get("tunnel")):
+        rules.append({"type": "field", "outboundTag": _exit_tag(data, routing["tunnel"]),
                       "network": "tcp,udp"})
+    elif adopted and routing.get("mode") == "keep":
+        pass  # the adopted config's own default (its first outbound) stays
     else:
         rules.append({"type": "field", "outboundTag": ob.TAG_DIRECT, "network": "tcp,udp"})
 
+    if adopted:
+        out = dict(base)
+        if rules or "rules" in base:
+            out["rules"] = rules
+        return out
     return {"domainStrategy": "IPIfNonMatch", "rules": rules}

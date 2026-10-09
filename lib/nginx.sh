@@ -6,9 +6,14 @@
 
 WEBROOT="/var/www/xvei-site"
 
-nginx_needed() {
-    local n; n="$(py needs 2>/dev/null)"
-    [[ " $n " == *" cert "* ]]
+# Debian/Ubuntu include sites-enabled/; RHEL/CentOS/Fedora have no such
+# directory and only include conf.d/*.conf.
+_nginx_site_path() {
+    if [ -d /etc/nginx/sites-enabled ]; then
+        echo "/etc/nginx/sites-enabled/xvei.conf"
+    else
+        echo "/etc/nginx/conf.d/xvei.conf"
+    fi
 }
 
 _nginx_deploy_site() {
@@ -18,20 +23,53 @@ _nginx_deploy_site() {
         rm -rf "$WEBROOT"
         mkdir -p "$WEBROOT"
         cp -rT "$src" "$WEBROOT"
-        chown -R www-data:www-data "$WEBROOT" 2>/dev/null || true
+        local u
+        for u in www-data nginx http; do
+            if id "$u" >/dev/null 2>&1; then chown -R "$u:" "$WEBROOT" 2>/dev/null; break; fi
+        done
         find "$WEBROOT" -type f -exec chmod 644 {} + 2>/dev/null || true
         find "$WEBROOT" -type d -exec chmod 755 {} + 2>/dev/null || true
     fi
 }
 
+# SELinux (CentOS/RHEL/Fedora): nginx may only bind ports labelled http_port_t
+# (8081 is transproxy_port_t out of the box) and may not open outbound
+# connections - which the reverse-proxy site needs - unless
+# httpd_can_network_connect is on.
+_nginx_selinux() {
+    command -v getenforce >/dev/null 2>&1 || return 0
+    [ "$(getenforce 2>/dev/null)" = "Enforcing" ] || return 0
+    command -v semanage >/dev/null 2>&1 || pkg_install policycoreutils-python-utils || true
+    if command -v semanage >/dev/null 2>&1; then
+        local labelled p
+        labelled="$(semanage port -l 2>/dev/null | awk '$1=="http_port_t" && $2=="tcp"')"
+        for p in 8080 8081; do
+            grep -qE "[ ,]$p(,|$)" <<<"$labelled" && continue
+            log "SELinux: allowing nginx to listen on $p"
+            semanage port -a -t http_port_t -p tcp "$p" 2>/dev/null \
+                || semanage port -m -t http_port_t -p tcp "$p" 2>/dev/null || true
+        done
+    else
+        warn "SELinux is enforcing but semanage is missing; nginx may fail to bind 8080/8081"
+    fi
+    if [ "$(state_get site.type)" = "proxy" ]; then
+        setsebool -P httpd_can_network_connect 1 2>/dev/null || true
+    fi
+    [ -d "$WEBROOT" ] && restorecon -R "$WEBROOT" 2>/dev/null || true
+}
+
 nginx_setup() {
     ensure_bin nginx
-    log "writing nginx fallback vhost -> $NGINX_XVEI_SITE"
-    [ -e "$NGINX_SITE_ENABLED" ] && rm -f "$NGINX_SITE_ENABLED"
+    local site; site="$(_nginx_site_path)"
+    log "writing nginx fallback vhost -> $site"
+    # the stock default site would shadow the fallback; an adopted server's
+    # nginx is left as it is
+    if ! is_adopted && [ -e "$NGINX_SITE_ENABLED" ]; then rm -f "$NGINX_SITE_ENABLED"; fi
     _nginx_deploy_site
-    if ! py nginx-conf > "$NGINX_XVEI_SITE"; then
+    if ! py nginx-conf > "$site"; then
         err "failed to render nginx vhost"; return 1
     fi
+    _nginx_selinux
     if nginx -t 2>/dev/null; then
         systemctl restart nginx
         systemctl enable nginx >/dev/null 2>&1 || true
@@ -43,9 +81,11 @@ nginx_setup() {
 }
 
 nginx_teardown() {
-    [ -e "$NGINX_XVEI_SITE" ] && rm -f "$NGINX_XVEI_SITE"
+    # nothing to undo unless xvei's vhost is there
+    [ -e /etc/nginx/sites-enabled/xvei.conf ] || [ -e /etc/nginx/conf.d/xvei.conf ] || return 0
+    rm -f /etc/nginx/sites-enabled/xvei.conf /etc/nginx/conf.d/xvei.conf
     rm -rf "$WEBROOT"
-    if [ -e "$NGINX_SITE_AVAILABLE" ] && [ ! -e "$NGINX_SITE_ENABLED" ]; then
+    if ! is_adopted && [ -e "$NGINX_SITE_AVAILABLE" ] && [ ! -e "$NGINX_SITE_ENABLED" ]; then
         ln -s "$NGINX_SITE_AVAILABLE" "$NGINX_SITE_ENABLED"
     fi
     systemctl restart nginx 2>/dev/null || true

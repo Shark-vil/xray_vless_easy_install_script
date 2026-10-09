@@ -19,6 +19,7 @@ warp_up() {
     fi
     mkdir -p "$WARP_DATA"
     log "starting WARP container (SOCKS5 127.0.0.1:1080)"
+    mark_managed warp
     docker run -d \
         --name "$WARP_CONTAINER" \
         --restart always \
@@ -33,7 +34,10 @@ warp_up() {
 
 warp_down() {
     command -v docker >/dev/null 2>&1 || return 0
+    xvei_owns warp || return 0
+    docker ps -a --format '{{.Names}}' | grep -qx "$WARP_CONTAINER" || return 0
     docker rm -f "$WARP_CONTAINER" >/dev/null 2>&1 || true
     rm -rf "$WARP_DATA"
+    unmark_managed warp
     ok "WARP container removed"
 }

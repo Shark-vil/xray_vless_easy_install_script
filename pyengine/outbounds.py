@@ -32,4 +32,6 @@ def build(data: dict) -> list[dict]:
         out.append(_socks(TAG_WARP, WARP_SOCKS_PORT))
     if want_tor:
         out.append(_socks(TAG_TOR, TOR_SOCKS_PORT))
+    for c in data.get("custom_outbounds", []):
+        out.append({"tag": c["tag"], **c["outbound"]})
     return out

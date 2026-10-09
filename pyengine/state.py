@@ -14,9 +14,18 @@ INBOUND_TYPES = (
     "vless-ws",
     "vless-xhttp-reality",
     "vless-xhttp-tls",
+    "trojan-tcp",
+    "trojan-ws",
+    "vmess-ws",
     "shadowsocks",
     "hysteria2",
+    "turnable",
 )
+
+# inbounds that live behind vless-tls's :443 fallbacks (no port of their own)
+FALLBACK_TYPES = ("vless-ws", "trojan-tcp", "trojan-ws", "vmess-ws")
+# inbounds that need the domain's TLS certificate
+TLS_TYPES = ("vless-tls", "vless-xhttp-tls") + FALLBACK_TYPES
 
 RULE_BUCKETS = ("block", "warp", "tor", "direct")
 COUNTRY_TEMPLATES = ("russia", "iran", "china")
@@ -37,8 +46,16 @@ def blank_state() -> dict:
         "routing": {"mode": "direct", "template": "none", "country_exit": None, "tunnel": None},
         "site": {"type": "auth", "proxy_url": ""},
         "outbounds": {"warp": False, "tor": False},
+        # [{"tag", "name", "link", "outbound": <xray outbound without tag>}]
+        "custom_outbounds": [],
         "inbounds": [],
         "rules": {b: [] for b in RULE_BUCKETS},
+        # An Xray setup that existed before xvei: "base" is its config, kept
+        # verbatim and merged with what xvei manages (see xrayconf.py).
+        "adopted": False,
+        "base": None,
+        # sha256 of config.json as xvei last wrote it (or as it was adopted)
+        "applied_sha256": "",
     }
 
 
@@ -86,6 +103,9 @@ def _migrate(data: dict) -> dict:
         data["rules"].setdefault(b, [])
     data["outbounds"].setdefault("warp", False)
     data["outbounds"].setdefault("tor", False)
+    data.setdefault("custom_outbounds", [])
+    for c in data["custom_outbounds"]:
+        data["rules"].setdefault(c["tag"], [])
     data.setdefault("site", {"type": "auth", "proxy_url": ""})
     data["site"].setdefault("type", "auth")
     data["site"].setdefault("proxy_url", "")
@@ -112,6 +132,49 @@ def get_type(data: dict, itype: str) -> dict | None:
     return None
 
 
+def custom_outbound(data: dict, tag: str) -> dict | None:
+    for c in data.get("custom_outbounds", []):
+        if c["tag"] == tag:
+            return c
+    return None
+
+
+def custom_tags(data: dict) -> list[str]:
+    return [c["tag"] for c in data.get("custom_outbounds", [])]
+
+
+def rule_buckets(data: dict) -> list[str]:
+    """Built-in buckets plus one per custom outbound (named by its tag)."""
+    return list(RULE_BUCKETS) + custom_tags(data)
+
+
+def tunnel_names(data: dict) -> list[str]:
+    """What may carry the template's tunnel / in-country exit traffic."""
+    return ["warp", "tor"] + custom_tags(data)
+
+
+def base_inbounds(data: dict) -> list[dict]:
+    return list((data.get("base") or {}).get("inbounds") or []) if data.get("adopted") else []
+
+
+def base_outbounds(data: dict) -> list[dict]:
+    return list((data.get("base") or {}).get("outbounds") or []) if data.get("adopted") else []
+
+
+def base_tags(data: dict) -> set[str]:
+    """Inbound + outbound tags of the adopted config."""
+    return {o.get("tag") for o in base_inbounds(data) + base_outbounds(data) if o.get("tag")}
+
+
+def base_ports(data: dict) -> set[int]:
+    out: set[int] = set()
+    for ib in base_inbounds(data):
+        p = ib.get("port")
+        if isinstance(p, int) or (isinstance(p, str) and p.isdigit()):
+            out.add(int(p))
+    return out
+
+
 def proxied_inbound_tags(data: dict) -> list[str]:
     return [ib["tag"] for ib in data["inbounds"]]
 
@@ -119,9 +182,10 @@ def proxied_inbound_tags(data: dict) -> list[str]:
 def needs(data: dict) -> list[str]:
     """External resources the current state requires bash to provision."""
     out: list[str] = []
-    tls_users = {"vless-tls", "vless-ws", "vless-xhttp-tls"}
-    if any(ib["type"] in tls_users for ib in data["inbounds"]):
+    if any(ib["type"] in TLS_TYPES for ib in data["inbounds"]):
         out.append("cert")
+    if has_type(data, "turnable"):
+        out.append("turnable")
     if has_type(data, "hysteria2"):
         out.append("hysteria2")
         if data["domain"]:
@@ -132,5 +196,23 @@ def needs(data: dict) -> list[str]:
     if data["outbounds"]["tor"] or r.get("tunnel") == "tor" or r.get("country_exit") == "tor":
         out.append("tor")
     # dedupe, keep order
+    seen: set[str] = set()
+    return [x for x in out if not (x in seen or seen.add(x))]
+
+
+def public_ports(data: dict) -> list[str]:
+    """Ports clients (and Let's Encrypt) must reach, as 'PORT/proto'."""
+    out: list[str] = []
+    if "cert" in needs(data):
+        out.append("80/tcp")  # http-01 challenge for issue + renewal
+    for ib in data["inbounds"]:
+        t, port = ib["type"], ib.get("port", 443)
+        if t in ("vless-tls", "vless-xhttp-reality") or (
+                t == "vless-xhttp-tls" and ib.get("standalone")):
+            out.append(f"{port}/tcp")
+        elif t == "shadowsocks":
+            out += [f"{port}/tcp", f"{port}/udp"]
+        elif t in ("hysteria2", "turnable"):
+            out.append(f"{port}/udp")
     seen: set[str] = set()
     return [x for x in out if not (x in seen or seen.add(x))]

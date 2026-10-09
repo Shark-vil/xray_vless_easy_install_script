@@ -22,17 +22,33 @@ _resolve_root() {
 XVEI_ROOT="$(_resolve_root)"
 export XVEI_ROOT
 
+# --- fetching the tree ---------------------------------------------------
+# latest commit of the branch (plain sha from the GitHub API), empty on failure
+xvei_remote_sha() {
+    curl -fsSL --max-time 10 -H 'Accept: application/vnd.github.sha' \
+        "https://api.github.com/repos/$REPO_SLUG/commits/$REPO_BRANCH" 2>/dev/null \
+        | grep -E '^[0-9a-f]{40}$'
+}
+
+# Download the tree into $INSTALL_DIR and record its commit in .commit, which
+# `xvei check-updates` compares against the branch head.
+xvei_fetch_tree() {
+    local sha; sha="$(xvei_remote_sha)"
+    mkdir -p "$INSTALL_DIR"
+    curl -fsSL "https://github.com/$REPO_SLUG/archive/${sha:-refs/heads/$REPO_BRANCH}.tar.gz" \
+        | tar -xz -C "$INSTALL_DIR" --strip-components=1 || return 1
+    if [ -n "$sha" ]; then echo "$sha" > "$INSTALL_DIR/.commit"; else rm -f "$INSTALL_DIR/.commit"; fi
+    ln -sf "$INSTALL_DIR/xvei.sh" /usr/local/bin/xvei
+    chmod +x "$INSTALL_DIR/xvei.sh"
+}
+
 # --- bootstrap: fetch the modular tree when run via curl|bash ----------
 bootstrap() {
     [ "$(id -u)" -eq 0 ] || { echo "run as root" >&2; exit 1; }
     echo "[xvei] fetching $REPO_SLUG@$REPO_BRANCH -> $INSTALL_DIR"
     command -v curl >/dev/null 2>&1 || { echo "curl required" >&2; exit 1; }
     command -v tar  >/dev/null 2>&1 || { echo "tar required"  >&2; exit 1; }
-    mkdir -p "$INSTALL_DIR"
-    curl -fsSL "https://github.com/$REPO_SLUG/archive/refs/heads/$REPO_BRANCH.tar.gz" \
-        | tar -xz -C "$INSTALL_DIR" --strip-components=1
-    ln -sf "$INSTALL_DIR/xvei.sh" /usr/local/bin/xvei
-    chmod +x "$INSTALL_DIR/xvei.sh"
+    xvei_fetch_tree || { echo "download failed" >&2; exit 1; }
     exec bash "$INSTALL_DIR/xvei.sh" "$@"
 }
 
@@ -42,7 +58,7 @@ fi
 
 # --- load modules ------------------------------------------------------
 # shellcheck source=lib/common.sh
-for m in common deps xray nginx certs hysteria2 warp tor apply menu; do
+for m in common deps adopt xray nginx certs hysteria2 turnable warp tor firewall update apply menu; do
     # shellcheck disable=SC1090
     source "$XVEI_ROOT/lib/$m.sh"
 done
@@ -50,6 +66,17 @@ done
 # --- high level flows ------------------------------------------------
 wizard_install() {
     require_root
+    if ! state_exists && xray_installed; then
+        # an Xray that xvei did not set up: take it over as is, change nothing
+        adopt_preflight
+        if [ -f "$XRAY_CONFIG" ]; then
+            adopt_existing
+            return
+        fi
+    fi
+    os_check_supported
+    # bootstrap already links it; a run from a git clone needs it too
+    [ -e /usr/local/bin/xvei ] || ln -sf "$XVEI_ROOT/xvei.sh" /usr/local/bin/xvei
     ensure_core_deps
     xray_install
     py init >/dev/null 2>&1 || true
@@ -66,24 +93,27 @@ wizard_install() {
 
 xvei_remove() {
     require_root
+    if state_exists && is_adopted; then
+        remove_adopted
+        return
+    fi
     log "stopping services"
     systemctl disable --now xray.service 2>/dev/null || true
     hy2_remove_pkg
+    turnable_down
     warp_down
     tor_down
     xray_remove_pkg
     nginx_teardown
     cert_hook_teardown
-    rm -rf "$XRAY_DIR" "$HY2_DIR" "$CLIENT_DIR"
+    rm -rf "$XRAY_DIR" "$HY2_DIR" "$CLIENT_DIR" "$XVEI_MARKERS"
     ok "xvei removed"
 }
 
 self_update() {
     require_root
     [ -d "$INSTALL_DIR" ] || die "not a bootstrapped install ($INSTALL_DIR missing)"
-    curl -fsSL "https://github.com/$REPO_SLUG/archive/refs/heads/$REPO_BRANCH.tar.gz" \
-        | tar -xz -C "$INSTALL_DIR" --strip-components=1
-    ln -sf "$INSTALL_DIR/xvei.sh" /usr/local/bin/xvei
+    xvei_fetch_tree || die "download failed"
     ok "updated $INSTALL_DIR"
 }
 
@@ -110,21 +140,33 @@ xvei - Xray + Hysteria2 installer / live editor
 
   xvei add-inbound  <type> [--port N] [--dest SNI] [--method M]
        types: vless-tls vless-ws vless-xhttp-reality vless-xhttp-tls
-              shadowsocks hysteria2
+              trojan-tcp trojan-ws vmess-ws shadowsocks hysteria2
+              turnable (UNSTABLE, NOT anonymous: VK sees the server IP;
+                        --dest takes the VK call link)
   xvei remove-inbound <tag>
-  xvei add-outbound   <warp|tor>
-  xvei remove-outbound <warp|tor>
-  xvei rule <add|remove|list> <block|warp|tor|direct> [matcher ...]
-  xvei template <russia|iran|china> --exit <warp|tor|block> [--tunnel <warp|tor> | --direct]
-  xvei template popular --tunnel <warp|tor>
-  xvei template none [--tunnel <warp|tor> | --direct]
+  xvei add-outbound   <warp|tor|LINK ...> [--tag T]
+       LINK: vless:// vmess:// trojan:// ss:// socks5:// http:// share link
+             (quote it: it contains &)
+  xvei remove-outbound <warp|tor|TAG>
+  xvei rule <add|remove|list> <block|direct|warp|tor|TAG> [matcher ...]
+  xvei template <russia|iran|china> --exit <warp|tor|block|TAG> [--tunnel <warp|tor|TAG> | --direct]
+  xvei template popular --tunnel <warp|tor|TAG>
+  xvei template none [--tunnel <warp|tor|TAG> | --direct | --keep]
+       --keep (adopted setups): no catch-all rule, the existing default stays
   xvei site [list | auth | blank | 404 | <preset> | proxy <url|preset>]
        presets: nebula critters game2048 snake notes
 
   xvei links [tag]         print client share links
   xvei qr <tag>            print a QR code for one inbound
   xvei status              services + active template
+  xvei show-config [file]  print config.json (JSON5, comments kept) readably
+  xvei firewall [status | open | setup]
+       status: show the firewall and which needed ports are open
+       open:   add allow rules for the ports xvei needs (active ufw/firewalld)
+       setup:  opt-in "deny incoming except SSH + xvei ports" (asks first)
   xvei set-meta [--domain D --email E ...]
+  xvei check-updates       compare xvei / xray / hysteria2 / geo data with the
+                           latest releases and offer to update
   xvei update-geo          refresh geoip/geosite
   xvei self-update         re-fetch the script tree
   xvei remove              uninstall everything
@@ -152,6 +194,14 @@ case "$cmd" in
                          [ -f "$f" ] || die "no link file: $f"
                          qrencode -t ANSIUTF8 "$(cat "$f")" ;;
     status)              menu_status ;;
+    show-config)         show_config "${1:-}" ;;
+    firewall)            case "${1:-status}" in
+                             status) fw_status ;;
+                             open)   fw_open ;;
+                             setup)  fw_setup ;;
+                             *)      die "usage: xvei firewall [status|open|setup]" ;;
+                         esac ;;
+    check-updates)       check_updates ;;
     update-geo)          require_root; xray_update_geo; xray_restart; ok "geo updated" ;;
     self-update)         self_update ;;
     remove|uninstall)    xvei_remove ;;

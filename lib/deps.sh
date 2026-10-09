@@ -1,5 +1,51 @@
 # shellcheck shell=bash
-# Package-manager abstraction and dependency installation.
+# OS detection, package-manager abstraction and dependency installation.
+#
+# Supported (tested) targets: Ubuntu 20.04+, Debian 11+, CentOS Stream 9.
+# Anything else runs on a best-effort basis after a warning.
+
+OS_ID=""; OS_VER=""; OS_LIKE=""; OS_NAME=""
+detect_os() {
+    [ -n "$OS_ID" ] && return 0
+    eval "$(
+        # shellcheck disable=SC1091
+        . /etc/os-release 2>/dev/null
+        printf 'OS_ID=%q OS_VER=%q OS_LIKE=%q OS_NAME=%q\n' \
+            "${ID:-unknown}" "${VERSION_ID:-}" "${ID_LIKE:-}" "${PRETTY_NAME:-${ID:-unknown}}"
+    )"
+}
+
+# CentOS / RHEL / Alma / Rocky / Oracle - but not Fedora
+os_is_rhel_family() {
+    detect_os
+    [ "$OS_ID" = fedora ] && return 1
+    case " $OS_ID $OS_LIKE " in
+        *" rhel "*|*" centos "*) return 0 ;;
+    esac
+    return 1
+}
+
+os_supported() {
+    detect_os
+    local major="${OS_VER%%.*}"
+    [[ "$major" =~ ^[0-9]+$ ]] || return 1
+    case "$OS_ID" in
+        ubuntu) [ "$major" -ge 20 ] ;;
+        debian) [ "$major" -ge 11 ] ;;
+        centos) [ "$major" -eq 9 ] ;;
+        *)      return 1 ;;
+    esac
+}
+
+os_check_supported() {
+    if os_supported; then
+        log "OS: $OS_NAME (supported)"
+        return 0
+    fi
+    warn "OS: $OS_NAME is not on the supported list (Ubuntu 20.04+, Debian 11+, CentOS Stream 9)."
+    warn "xvei may partly work here, but nothing is guaranteed."
+    confirm "Continue anyway?" n || exit 1
+}
 
 _PKG=""
 detect_pkg() {
@@ -41,17 +87,38 @@ ensure_bin() {
     command -v "$bin" >/dev/null 2>&1 || die "failed to install '$bin'"
 }
 
+# certbot, tor and qrencode are not in the base RHEL-family repos, only in EPEL.
+ensure_epel() {
+    os_is_rhel_family || return 0
+    detect_pkg
+    rpm -q epel-release >/dev/null 2>&1 && return 0
+    log "enabling EPEL (certbot / tor / qrencode live there on RHEL-family systems)"
+    # some EPEL packages depend on CRB; harmless if it is already on or absent
+    "$_PKG" config-manager --set-enabled crb >/dev/null 2>&1 || true
+    "$_PKG" install -y epel-release >/dev/null 2>&1 \
+        || "$_PKG" install -y "https://dl.fedoraproject.org/pub/epel/epel-release-latest-$(rpm -E %rhel).noarch.rpm" \
+        || warn "could not enable EPEL; certbot / tor may fail to install"
+}
+
+ensure_python() {
+    find_python >/dev/null && return 0
+    pkg_install python3 || true
+    find_python >/dev/null && return 0
+    # EL8 / openSUSE Leap ship 3.6 as "python3"; newer builds are separate packages
+    case "$_PKG" in
+        dnf|yum) pkg_install python39 || pkg_install python3.11 || true ;;
+        zypper)  pkg_install python311 || true ;;
+    esac
+    find_python >/dev/null || die "Python >= 3.7 is required and could not be installed"
+}
+
 ensure_core_deps() {
+    detect_os
+    ensure_epel
     pkg_update
     ensure_bin curl
-    ensure_bin wget
-    ensure_bin jq
     ensure_bin qrencode
     ensure_bin openssl
     ensure_bin tar
-    if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then
-        pkg_install python3
-    fi
-    command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1 \
-        || die "python3 is required"
+    ensure_python
 }

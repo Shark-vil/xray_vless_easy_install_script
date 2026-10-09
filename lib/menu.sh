@@ -41,21 +41,28 @@ menu_status() {
 main_menu() {
     require_root
     if ! state_exists; then
-        confirm "xvei is not installed here. Run the installer now?" && { wizard_install; return; }
+        if xray_installed && [ -f "$XRAY_CONFIG" ]; then
+            confirm "An existing Xray setup was found. Adopt it? (nothing is changed)" \
+                && { wizard_install; return; }
+        else
+            confirm "xvei is not installed here. Run the installer now?" && { wizard_install; return; }
+        fi
         return 0
     fi
     while true; do
         echo
         echo "== XVEI =="
         echo " 1) Inbounds        (add / remove / list)"
-        echo " 2) Outbounds       (WARP / TOR)"
-        echo " 3) Routing rules   (block / tunnel warp / tunnel tor / direct)"
+        echo " 2) Outbounds       (WARP / TOR / share links)"
+        echo " 3) Routing rules   (block / direct / warp / tor / added outbounds)"
         echo " 4) Routing template (country / popular direct) & exit mode"
         echo " 5) Camouflage site (auth / static preset / reverse-proxy)"
         echo " 6) Show links / QR"
         echo " 7) Status"
-        echo " 8) Update geo data"
-        echo " 9) Uninstall xvei"
+        echo " 8) View config.json"
+        echo " 9) Firewall        (optional: open ports / lockdown)"
+        echo "10) Check for updates (xvei / xray / hysteria2 / geo data)"
+        echo "11) Uninstall xvei"
         echo " 0) Exit"
         local c; c="$(read_value "Choose")"
         case "$c" in
@@ -66,8 +73,10 @@ main_menu() {
             5) py menu site;      _menu_apply_if_changed $? ;;
             6) menu_links ;;
             7) menu_status ;;
-            8) xray_update_geo && xray_restart && ok "geo updated" ;;
-            9) confirm "Really uninstall xvei and all services?" n && { xvei_remove; return; } ;;
+            8) show_config ;;
+            9) menu_firewall ;;
+            10) check_updates ;;
+            11) confirm "Really uninstall xvei and all services?" n && { xvei_remove; return; } ;;
             0|"") return 0 ;;
             *) warn "unknown choice" ;;
         esac
