@@ -37,7 +37,7 @@ def _exit_tag(data: dict, name: str | None) -> str | None:
     """Outbound tag for warp / tor / block / direct or a custom outbound tag."""
     if name in _EXIT_TAGS:
         return _EXIT_TAGS[name]
-    if name and st.custom_outbound(data, name):
+    if name and name in st.extra_buckets(data):
         return name
     return None
 
@@ -111,7 +111,7 @@ def build(data: dict) -> dict:
         rules += _rule(ob.TAG_WARP, user.get("warp", []))
     if data["outbounds"]["tor"]:
         rules += _rule(ob.TAG_TOR, user.get("tor", []))
-    for tag in st.custom_tags(data):
+    for tag in st.extra_buckets(data):
         rules += _rule(tag, user.get(tag, []))
 
     template = routing.get("template") or "none"

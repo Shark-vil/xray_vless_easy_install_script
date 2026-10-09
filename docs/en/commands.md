@@ -15,13 +15,15 @@ xvei remove-inbound <tag>
 xvei add-outbound   <warp|tor|LINK ...> [--tag T]
 xvei remove-outbound <warp|tor|TAG>
 xvei rule <add|remove|list> <block|direct|warp|tor|TAG> [matcher ...]
+xvei rule list           all rules; the adopted config's ones are numbered
+xvei rule delete <N>     remove rule N of the adopted config
 xvei template <russia|iran|china> --exit <warp|tor|block|TAG> [--tunnel <warp|tor|TAG> | --direct]
 xvei template popular --tunnel <warp|tor|TAG>
 xvei template none [--tunnel <warp|tor|TAG> | --direct | --keep]
 xvei site [list | auth | blank | 404 | <preset> | proxy <url|preset>]
 
 xvei links [tag]         print client share links
-xvei qr <tag>            QR code for one inbound
+xvei qr <tag> [client]   QR code for one inbound (client: name or number)
 xvei client-config <tag> full Xray client config (with routing rules)
 xvei status              services + active template
 xvei show-config [file]  print config.json readably (JSON5, comments kept)

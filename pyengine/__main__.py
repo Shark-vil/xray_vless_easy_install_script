@@ -94,13 +94,25 @@ def _inbound_or_die(data: dict, tag: str) -> dict:
 
 
 def cmd_link(a) -> int:
-    """Print one inbound's share link (for the QR code)."""
-    data = _load()
-    link = links.share_link(data, _inbound_or_die(data, a.tag))
-    if not link:
+    """Print one share link of an inbound (for the QR code). An inbound with
+    several clients asks which one, unless --client picks it (name or number)."""
+    found = links.inbound_links(_load(), a.tag)
+    if found is None:
+        util.die(f"no inbound with tag {a.tag!r} (see: xvei links)")
+    if not found:
         util.die(f"{a.tag}: no share link")
-    print(link)
-    return 0
+    pick = a.client
+    if pick is None and len(found) > 1:
+        pick = util.choose("Which client", [(str(i), name or f"#{i}")
+                                            for i, (name, _l) in enumerate(found, 1)], "1")
+    if pick is None:
+        print(found[0][1])
+        return 0
+    for i, (name, link) in enumerate(found, 1):
+        if pick in (str(i), name):
+            print(link)
+            return 0
+    util.die(f"{a.tag}: no client {pick!r}")
 
 
 def cmd_client_config(a) -> int:
@@ -169,6 +181,8 @@ def cmd_add_inbound(a) -> int:
 
 def cmd_remove_inbound(a) -> int:
     data = _load()
+    if not st.inbound_by_tag(data, a.tag) and a.tag in st.base_tags(data):
+        return _finish(editor.remove_base_inbound(data, a.tag), data)
     return _finish(editor.remove_inbound(data, a.tag), data)
 
 
@@ -191,11 +205,26 @@ def cmd_remove_outbound(a) -> int:
     data = _load()
     if a.name in ("warp", "tor"):
         return _finish(editor.set_outbound(data, a.name, False), data)
+    if not st.custom_outbound(data, a.name) and a.name in st.base_tags(data):
+        return _finish(editor.remove_base_outbound(data, a.name), data)
     return _finish(editor.remove_custom_outbound(data, a.name), data)
 
 
 def cmd_rule(a) -> int:
     data = _load()
+    if a.op == "delete":
+        if not (a.bucket or "").isdigit():
+            util.die("usage: rule delete <N>  (N from: rule list)")
+        return _finish(editor.remove_base_rule(data, int(a.bucket)), data)
+    if a.op == "list" and not a.bucket:
+        for b in st.rule_buckets(data):
+            if data["rules"].get(b):
+                print(f"[{b}] {', '.join(data['rules'][b])}")
+        for i, r in enumerate(st.base_rules(data), 1):
+            print(f"{i:>2}) {st.describe_raw_rule(r)}")
+        return 0
+    if not a.bucket:
+        util.die(f"rule {a.op} needs an outbound: {'|'.join(st.rule_buckets(data))}")
     changed = editor.rule_op(data, a.op, a.bucket, a.match)
     return _finish(changed, data)
 
@@ -265,6 +294,9 @@ def cmd_list_inbounds(_a) -> int:
     data = _load()
     for ib in data["inbounds"]:
         print(f"{ib['tag']}\t{ib['type']}\t{ib.get('port', '')}")
+    for ib in st.base_inbounds(data):
+        if ib.get("tag"):
+            print(f"{ib['tag']}\t{ib.get('protocol', '')}\t{ib.get('port', '')}")
     return 0
 
 
@@ -414,6 +446,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     lk = sub.add_parser("link")
     lk.add_argument("tag")
+    lk.add_argument("--client", default=None)
     lk.set_defaults(fn=cmd_link)
 
     cc = sub.add_parser("client-config")
@@ -483,8 +516,8 @@ def build_parser() -> argparse.ArgumentParser:
     ro.set_defaults(fn=cmd_remove_outbound)
 
     ru = sub.add_parser("rule")
-    ru.add_argument("op", choices=["add", "remove", "list"])
-    ru.add_argument("bucket", metavar="block|direct|warp|tor|TAG")
+    ru.add_argument("op", choices=["add", "remove", "list", "delete"])
+    ru.add_argument("bucket", nargs="?", metavar="block|direct|warp|tor|TAG|N")
     ru.add_argument("match", nargs="*")
     ru.set_defaults(fn=cmd_rule)
 

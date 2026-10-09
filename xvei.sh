@@ -143,12 +143,14 @@ xvei - a simple Xray server setup manager
               trojan-tcp trojan-ws vmess-ws shadowsocks hysteria2
               turnable (UNSTABLE, NOT anonymous: VK sees the server IP;
                         --dest takes the VK call link)
-  xvei remove-inbound <tag>
+  xvei remove-inbound <tag>   (also an inbound of the adopted config)
   xvei add-outbound   <warp|tor|LINK ...> [--tag T]
        LINK: vless:// vmess:// trojan:// ss:// socks5:// http:// share link
              (quote it: it contains &)
-  xvei remove-outbound <warp|tor|TAG>
+  xvei remove-outbound <warp|tor|TAG>   (also an outbound of the adopted config)
   xvei rule <add|remove|list> <block|direct|warp|tor|TAG> [matcher ...]
+  xvei rule list           all rules, the adopted config's ones numbered
+  xvei rule delete <N>     remove rule N of the adopted config
   xvei template <russia|iran|china> --exit <warp|tor|block|TAG> [--tunnel <warp|tor|TAG> | --direct]
   xvei template popular --tunnel <warp|tor|TAG>
   xvei template none [--tunnel <warp|tor|TAG> | --direct | --keep]
@@ -157,7 +159,7 @@ xvei - a simple Xray server setup manager
        presets: nebula critters game2048 snake notes
 
   xvei links [tag]         print client share links
-  xvei qr <tag>            print a QR code for one inbound
+  xvei qr <tag> [client]   print a QR code for one inbound (client: name or number)
   xvei client-config <tag> print the full Xray client config (with routing rules)
   xvei status              services + active template
   xvei show-config [file]  print config.json (JSON5, comments kept) readably
@@ -190,8 +192,8 @@ case "$cmd" in
                          else _apply_after site "$@"; fi ;;
     set-meta)            _apply_after set-meta "$@" ;;
     links)               py show-links ${1:+--tag "$1"} ;;
-    qr)                  [ -n "${1:-}" ] || die "usage: xvei qr <tag>"
-                         link="$(py link "$1")" || exit 1
+    qr)                  [ -n "${1:-}" ] || die "usage: xvei qr <tag> [client]"
+                         link="$(py link "$1" ${2:+--client "$2"})" || exit 1
                          qrencode -t ANSIUTF8 "$link" ;;
     client-config)       [ -n "${1:-}" ] || die "usage: xvei client-config <tag>"
                          py client-config "$1" ;;

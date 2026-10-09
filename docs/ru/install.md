@@ -98,6 +98,26 @@ bash xvei.sh install
 * tor, контейнер WARP, Hysteria2 и nginx останавливаются или перенастраиваются,
   только если их поднял сам xvei.
 
+Существующие части не скрыты от xvei — они показываются рядом с его
+собственными (с пометкой «existing»):
+
+* **ссылки и QR-коды** для существующих inbound: VLESS / VMess / Trojan /
+  Shadowsocks (TCP, WS, XHTTP, HTTPUpgrade, gRPC; TLS или REALITY), по одной на
+  клиента, с именем из его `email`. Inbound, который слушает unix-сокет или
+  localhost и доступен через `fallbacks` TLS-inbound (например, WS за VLESS TLS
+  на `:443`), получает порт и TLS этого inbound. Для открытых наружу SOCKS /
+  HTTP — ссылки `socks5://` / `http://`, для SOCKS ещё `t.me/socks` для
+  Telegram. `xvei qr <tag> [клиент]`;
+* **outbounds**: видны, их можно использовать как цель правил и как туннель или
+  выход шаблона (например, существующий `warp_proxy` или SOCKS-прокси). Если в
+  конфиге уже есть `warp_proxy` / `tor_proxy`, xvei не запускает рядом свой
+  WARP / TOR;
+* **правила маршрутизации**: видны в том порядке, в котором их проверяет Xray
+  (`xvei rule list`); новые матчеры можно направить в любой outbound,
+  существующие правила — удалить (`xvei rule delete <N>`);
+* существующие inbound и outbound можно удалить (`xvei remove-inbound <tag>`,
+  `xvei remove-outbound <tag>`); пока их использует правило, xvei откажет.
+
 Перед первой записью оригинал сохраняется как `config.json.xvei-orig` (вместе с
 комментариями; в пересобранном файле их нет). Если `config.json` правили
 вручную после записи xvei, xvei спросит перед перезаписью. `xvei remove`

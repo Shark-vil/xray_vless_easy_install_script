@@ -15,13 +15,15 @@ xvei remove-inbound <tag>
 xvei add-outbound   <warp|tor|LINK ...> [--tag T]
 xvei remove-outbound <warp|tor|TAG>
 xvei rule <add|remove|list> <block|direct|warp|tor|TAG> [матчер ...]
+xvei rule list           все правила; правила принятого конфига пронумерованы
+xvei rule delete <N>     удалить правило N принятого конфига
 xvei template <russia|iran|china> --exit <warp|tor|block|TAG> [--tunnel <warp|tor|TAG> | --direct]
 xvei template popular --tunnel <warp|tor|TAG>
 xvei template none [--tunnel <warp|tor|TAG> | --direct | --keep]
 xvei site [list | auth | blank | 404 | <заготовка> | proxy <url|preset>]
 
 xvei links [tag]         вывести клиентские ссылки
-xvei qr <tag>            QR-код для одного inbound
+xvei qr <tag> [клиент]   QR-код для одного inbound (клиент: имя или номер)
 xvei client-config <tag> полный клиентский конфиг Xray (с правилами маршрутизации)
 xvei status              сервисы и активный шаблон
 xvei show-config [файл]  вывести config.json в читаемом виде (JSON5, комментарии сохраняются)

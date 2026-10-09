@@ -6,6 +6,7 @@ import json
 import os
 from urllib.parse import quote, unquote, urlencode
 
+import rawlinks
 import routing
 import state as st
 import util
@@ -213,3 +214,26 @@ def print_links(data: dict, tag: str | None = None) -> None:
             print(f"   {turnable_app_link(data, ib)}")
             continue
         print(link)
+    for ib in st.base_inbounds(data):
+        if tag and ib.get("tag") != tag:
+            continue
+        found, note = rawlinks.inbound_links(data, ib)
+        print(f"\n=== {st.describe_raw_inbound(ib)} [existing] ===")
+        if not found:
+            print(f"(no link: {note})")
+        for name, link in found:
+            if len(found) > 1 and name:
+                print(f"# {name}")
+            print(link)
+
+
+def inbound_links(data: dict, tag: str) -> list[tuple[str, str]] | None:
+    """[(client name, link)] of an xvei or adopted inbound; None: no such tag."""
+    ib = st.inbound_by_tag(data, tag)
+    if ib:
+        link = share_link(data, ib)
+        return [(tag, link)] if link else []
+    for x in st.base_inbounds(data):
+        if x.get("tag") == tag:
+            return rawlinks.inbound_links(data, x)[0]
+    return None

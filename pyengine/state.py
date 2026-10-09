@@ -143,14 +143,39 @@ def custom_tags(data: dict) -> list[str]:
     return [c["tag"] for c in data.get("custom_outbounds", [])]
 
 
+def base_outbound_tags(data: dict) -> list[str]:
+    """Tags of the adopted config's outbounds that rules can point at, apart
+    from "direct" / "block", which are xvei's own buckets anyway."""
+    return [o["tag"] for o in base_outbounds(data)
+            if o.get("tag") and o["tag"] not in ("direct", "block")
+            and not custom_outbound(data, o["tag"])]
+
+
+def extra_buckets(data: dict) -> list[str]:
+    """Rule buckets named by an outbound tag: added outbounds, then the
+    adopted config's own (e.g. its "warp_proxy" or a "gemini_proxy")."""
+    return custom_tags(data) + base_outbound_tags(data)
+
+
 def rule_buckets(data: dict) -> list[str]:
-    """Built-in buckets plus one per custom outbound (named by its tag)."""
-    return list(RULE_BUCKETS) + custom_tags(data)
+    """Built-in buckets plus one per added or adopted outbound (its tag)."""
+    return list(RULE_BUCKETS) + extra_buckets(data)
+
+
+def builtin_tunnels(data: dict) -> list[str]:
+    """xvei's own WARP / TOR, unless the adopted config already has an outbound
+    with their tag (its own WARP / TOR - a second one would clash with it)."""
+    tags = base_tags(data)
+    return [n for n, tag in (("warp", "warp_proxy"), ("tor", "tor_proxy")) if tag not in tags]
 
 
 def tunnel_names(data: dict) -> list[str]:
     """What may carry the template's tunnel / in-country exit traffic."""
-    return ["warp", "tor"] + custom_tags(data)
+    tunnels = custom_tags(data) + [
+        o["tag"] for o in base_outbounds(data)
+        if o.get("tag") in base_outbound_tags(data)
+        and o.get("protocol") not in ("freedom", "blackhole", "dns", "loopback")]
+    return builtin_tunnels(data) + tunnels
 
 
 def base_inbounds(data: dict) -> list[dict]:
@@ -167,6 +192,44 @@ def describe_raw_inbound(ib: dict) -> str:
 
 def base_outbounds(data: dict) -> list[dict]:
     return list((data.get("base") or {}).get("outbounds") or []) if data.get("adopted") else []
+
+
+def describe_raw_outbound(ob: dict) -> str:
+    """One-line description of an outbound as it is in an Xray config."""
+    proto = ob.get("protocol", "?")
+    settings = ob.get("settings") or {}
+    srv = (settings.get("vnext") or settings.get("servers") or [None])[0]
+    out = f"{ob.get('tag') or '(no tag)'} ({proto}"
+    if isinstance(srv, dict):
+        out += f" {srv.get('address', '?')}:{srv.get('port', '?')}"
+    ss = ob.get("streamSettings") or {}
+    if ss:
+        out += f" {ss.get('network', 'tcp')}/{ss.get('security', 'none')}"
+    return out + ")"
+
+
+def describe_raw_rule(rule: dict) -> str:
+    """One-line description of a routing rule: its matchers -> its target."""
+    parts = []
+    for key in ("inboundTag", "domain", "ip", "port", "sourcePort", "source",
+                "network", "protocol", "user", "attrs"):
+        val = rule.get(key)
+        if val in (None, "", []):
+            continue
+        if isinstance(val, list):
+            shown = ", ".join(map(str, val[:4])) + (f" (+{len(val) - 4})" if len(val) > 4 else "")
+        else:
+            shown = str(val)
+        parts.append(f"{key} {shown}")
+    target = rule.get("outboundTag") or (f"balancer {rule['balancerTag']}"
+                                         if rule.get("balancerTag") else "?")
+    return f"{'; '.join(parts) or 'everything'} -> {target}"
+
+
+def base_rules(data: dict) -> list[dict]:
+    if not data.get("adopted"):
+        return []
+    return list(((data.get("base") or {}).get("routing") or {}).get("rules") or [])
 
 
 def base_tags(data: dict) -> set[str]:

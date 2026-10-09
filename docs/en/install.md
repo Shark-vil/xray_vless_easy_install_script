@@ -97,6 +97,26 @@ Afterwards xvei edits are merged into that config:
 * tor, the WARP container, Hysteria2 and nginx are stopped or reconfigured
   only if xvei set them up itself.
 
+The existing parts are not hidden from xvei, they are shown next to its own
+(marked "existing"):
+
+* **links and QR codes** for the existing inbounds: VLESS / VMess / Trojan /
+  Shadowsocks (TCP, WS, XHTTP, HTTPUpgrade, gRPC; TLS or REALITY), one per
+  client, named by its `email`. An inbound that listens on a unix socket or
+  localhost and is reached through the `fallbacks` of a TLS inbound (e.g. WS
+  behind VLESS TLS on `:443`) gets that inbound's port and TLS. SOCKS / HTTP
+  inbounds open to the internet get `socks5://` / `http://` links, SOCKS also a
+  `t.me/socks` link for Telegram. `xvei qr <tag> [client]`;
+* **outbounds**: listed, usable as rule targets and as the template's tunnel or
+  exit (e.g. an existing `warp_proxy` or a SOCKS proxy). If the config already
+  has `warp_proxy` / `tor_proxy`, xvei does not start its own WARP / TOR next
+  to them;
+* **routing rules**: listed in the order Xray checks them (`xvei rule list`);
+  new matchers can be sent to any outbound, existing rules can be removed
+  (`xvei rule delete <N>`);
+* existing inbounds and outbounds can be removed (`xvei remove-inbound <tag>`,
+  `xvei remove-outbound <tag>`); xvei refuses while a rule still uses them.
+
 Before the first write the original is saved as `config.json.xvei-orig`
 (comments included; the rebuilt file has none). If `config.json` is edited by
 hand after xvei wrote it, xvei asks before overwriting it. `xvei remove`

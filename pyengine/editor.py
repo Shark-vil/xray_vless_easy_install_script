@@ -172,6 +172,10 @@ def set_outbound(data: dict, name: str, on: bool) -> bool:
             util.die(f"{name} is the exit for in-country traffic; switch the "
                      f"template first (template {r.get('template')} --exit "
                      "block|warp|tor)")
+    if on and name not in st.builtin_tunnels(data):
+        tag = f"{name}_proxy"
+        util.die(f"the existing config already has an outbound {tag!r}; use it "
+                 f"as a rule / tunnel target instead (bucket {tag})")
     data["outbounds"][name] = on
     if not on:
         data["rules"][name] = []
@@ -224,6 +228,76 @@ def remove_custom_outbound(data: dict, tag: str) -> bool:
     data["custom_outbounds"] = [c for c in data["custom_outbounds"] if c["tag"] != tag]
     data["rules"].pop(tag, None)
     util.ok(f"removed outbound {tag}")
+    return True
+
+
+# ---- the adopted config's own inbounds / outbounds / rules -------------
+
+def _base(data: dict) -> dict:
+    if not data.get("adopted"):
+        util.die("not an adopted setup")
+    return data["base"]
+
+
+def _rule_tags(rule: dict, key: str) -> list[str]:
+    val = rule.get(key)
+    return [val] if isinstance(val, str) else list(val or [])
+
+
+def remove_base_inbound(data: dict, tag: str) -> bool:
+    base = _base(data)
+    ibs = base.get("inbounds") or []
+    ib = next((x for x in ibs if x.get("tag") == tag), None)
+    if not ib:
+        util.die(f"no inbound tagged {tag!r} in the existing config")
+    used = [i for i, r in enumerate(st.base_rules(data), 1)
+            if tag in _rule_tags(r, "inboundTag")]
+    if used:
+        util.die(f"routing rule(s) {', '.join(map(str, used))} use inbound {tag!r}; "
+                 "remove them first")
+    # inbounds whose TLS fallbacks hand traffic to this one keep working without
+    # it, so drop only those fallback entries
+    dests = {str(ib.get("listen") or ""), str(ib.get("port") or "")} - {""}
+    for x in ibs:
+        fbs = (x.get("settings") or {}).get("fallbacks")
+        if fbs:
+            x["settings"]["fallbacks"] = [f for f in fbs if str(f.get("dest")) not in dests]
+    base["inbounds"] = [x for x in ibs if x is not ib]
+    util.ok(f"removed inbound {tag} from the existing config")
+    return True
+
+
+def remove_base_outbound(data: dict, tag: str) -> bool:
+    base = _base(data)
+    obs = base.get("outbounds") or []
+    if not any(o.get("tag") == tag for o in obs):
+        util.die(f"no outbound tagged {tag!r} in the existing config")
+    used = [i for i, r in enumerate(st.base_rules(data), 1) if r.get("outboundTag") == tag]
+    if used:
+        util.die(f"routing rule(s) {', '.join(map(str, used))} send traffic to {tag!r}; "
+                 "remove them first")
+    if data["rules"].get(tag):
+        util.die(f"xvei rules send traffic to {tag!r}: {', '.join(data['rules'][tag])}; "
+                 "remove them first")
+    r = data["routing"]
+    if tag in (r.get("tunnel"), r.get("country_exit")):
+        util.die(f"{tag} is used by the routing template; switch the template first")
+    if obs and obs[0].get("tag") == tag:
+        util.warn(f"{tag} was the first outbound (Xray's default route); "
+                  f"now it is {obs[1].get('tag') if len(obs) > 1 else 'none'}")
+    base["outbounds"] = [o for o in obs if o.get("tag") != tag]
+    data["rules"].pop(tag, None)
+    util.ok(f"removed outbound {tag} from the existing config")
+    return True
+
+
+def remove_base_rule(data: dict, number: int) -> bool:
+    rules = st.base_rules(data)
+    if not 1 <= number <= len(rules):
+        util.die(f"no existing rule #{number} (there are {len(rules)})")
+    gone = rules.pop(number - 1)
+    _base(data)["routing"]["rules"] = rules
+    util.ok(f"removed rule #{number}: {st.describe_raw_rule(gone)}")
     return True
 
 
@@ -370,7 +444,7 @@ def menu_site(data: dict) -> bool:
 def _list_inbounds(data: dict) -> None:
     base = st.base_inbounds(data)
     if base:
-        print("  existing (adopted config, not managed by xvei):")
+        print("  existing (adopted config):")
         for ib in base:
             print(f"  = {st.describe_raw_inbound(ib)}")
         print("  added by xvei:")
@@ -410,13 +484,20 @@ def menu_inbounds(data: dict) -> bool:
             if add_inbound(data, itype):
                 return True
         elif act == "del":
-            if not data["inbounds"]:
-                util.warn("no inbounds added by xvei to remove"
-                          + (" (existing ones are edited in config.json directly)"
-                             if st.base_inbounds(data) else ""))
+            opts = [(x["tag"], x["tag"]) for x in data["inbounds"]]
+            opts += [("base:" + x["tag"], f"{x['tag']} (existing)")
+                     for x in st.base_inbounds(data) if x.get("tag")]
+            if not opts:
                 continue
-            tag = util.choose("Remove which", [(x["tag"], x["tag"]) for x in data["inbounds"]])
-            if remove_inbound(data, tag):
+            tag = util.choose("Remove which", opts + [("back", "Back")], "back")
+            if tag == "back":
+                continue
+            if tag.startswith("base:"):
+                if util.confirm(f"Remove {tag[5:]} from the existing config? Its "
+                                "clients stop working", default_yes=False) \
+                        and remove_base_inbound(data, tag[5:]):
+                    return True
+            elif remove_inbound(data, tag):
                 return True
 
 
@@ -426,13 +507,30 @@ def _custom_label(c: dict) -> str:
 
 
 def _tunnel_options(data: dict) -> list[tuple[str, str]]:
-    return [("warp", "WARP (Cloudflare)"), ("tor", "TOR")] + [
-        (c["tag"], _custom_label(c)) for c in data["custom_outbounds"]]
+    base = {o.get("tag"): o for o in st.base_outbounds(data)}
+    names = {"warp": "WARP (Cloudflare)", "tor": "TOR"}
+    opts = []
+    for tag in st.tunnel_names(data):
+        c = st.custom_outbound(data, tag)
+        opts.append((tag, names.get(tag) or (_custom_label(c) if c else
+                     st.describe_raw_outbound(base[tag]) + " existing")))
+    return opts
+
+
+def _default_tunnel(data: dict, cur: str | None) -> str:
+    names = st.tunnel_names(data)
+    return cur if cur in names else (names[0] if names else "")
 
 
 def menu_outbounds(data: dict) -> bool:
     while True:
         print("\n-- Outbounds --")
+        base = st.base_outbounds(data)
+        if base:
+            print("  existing (adopted config; the first one is the default route):")
+            for o in base:
+                print(f"  = {st.describe_raw_outbound(o)}")
+            print("  managed by xvei:")
         print(f"  WARP: {'on' if data['outbounds']['warp'] else 'off'}")
         print(f"  TOR : {'on' if data['outbounds']['tor'] else 'off'}")
         for c in data["custom_outbounds"]:
@@ -444,6 +542,8 @@ def menu_outbounds(data: dict) -> bool:
         ]
         if data["custom_outbounds"]:
             acts.append(("del", "Remove an added outbound"))
+        if base:
+            acts.append(("delbase", "Remove an existing outbound"))
         acts.append(("back", "Back"))
         act = util.choose("Action", acts, "back")
         if act == "back":
@@ -464,6 +564,13 @@ def menu_outbounds(data: dict) -> bool:
             if remove_custom_outbound(data, tag):
                 return True
             continue
+        if act == "delbase":
+            tag = util.choose("Remove which", [(o["tag"], st.describe_raw_outbound(o))
+                                               for o in base if o.get("tag")]
+                              + [("back", "Back")], "back")
+            if tag != "back" and remove_base_outbound(data, tag):
+                return True
+            continue
         cur = data["outbounds"][act]
         if set_outbound(data, act, not cur):
             return True
@@ -475,17 +582,44 @@ def menu_rules(data: dict) -> bool:
         buckets.append("warp")
     if data["outbounds"]["tor"]:
         buckets.append("tor")
-    buckets += st.custom_tags(data)
+    buckets += st.extra_buckets(data)
     while True:
-        print("\n-- Routing rules --")
+        base = st.base_rules(data)
+        print("\n-- Routing rules (checked top to bottom) --")
+        if base:
+            print("  added by xvei (checked first):")
         for b in buckets:
-            print(f"  [{b}] " + (", ".join(data['rules'].get(b, [])) or "(empty)"))
-        bucket = util.choose("Bucket", [(b, b) for b in buckets] + [("back", "Back")], "back")
-        if bucket == "back":
+            if data["rules"].get(b) or b in ("block", "direct", "warp", "tor"):
+                print(f"  [{b}] " + (", ".join(data['rules'].get(b, [])) or "(empty)"))
+        if base:
+            print("  existing (adopted config):")
+            for i, r in enumerate(base, 1):
+                print(f"  {i:>2}) {st.describe_raw_rule(r)}")
+        acts = [("add", "Add matcher (send it to an outbound)"),
+                ("remove", "Remove an xvei matcher")]
+        if base:
+            acts.append(("delbase", "Remove an existing rule"))
+        acts.append(("back", "Back"))
+        act = util.choose("Action", acts, "back")
+        if act == "back":
             return False
-        op = util.choose("Operation", [("add", "Add matcher"), ("remove", "Remove matcher")])
-        val = util.prompt("Matcher (e.g. geosite:openai, domain:example.com, geoip:de, 1.2.3.0/24)")
-        if val and rule_op(data, op, bucket, [val]):
+        if act == "delbase":
+            raw = util.prompt("Rule number (empty = back)")
+            if raw.isdigit() and remove_base_rule(data, int(raw)):
+                return True
+            continue
+        pool = buckets if act == "add" else [b for b in buckets if data["rules"].get(b)]
+        if not pool:
+            util.warn("no xvei matchers yet")
+            continue
+        bucket = util.choose("Outbound", [(b, b) for b in pool] + [("back", "Back")], "back")
+        if bucket == "back":
+            continue
+        if act == "add":
+            val = util.prompt("Matcher (e.g. geosite:openai, domain:example.com, geoip:de, 1.2.3.0/24)")
+        else:
+            val = util.choose("Matcher", [(m, m) for m in data["rules"][bucket]])
+        if val and rule_op(data, act, bucket, [val]):
             return True
 
 
@@ -516,12 +650,12 @@ def menu_template(data: dict) -> bool:
         ]), r.get("mode") or "direct")
         tunnel = None
         if mode == "tunnel":
-            tunnel = util.choose("Tunnel", _tunnel_options(data), r.get("tunnel") or "warp")
+            tunnel = util.choose("Tunnel", _tunnel_options(data), _default_tunnel(data, r.get("tunnel")))
         return set_template(data, template, country_exit=country_exit, mode=mode, tunnel=tunnel)
 
     if template == "popular":
         tunnel = util.choose("Tunnel for everything outside the popular list",
-                              _tunnel_options(data), r.get("tunnel") or "warp")
+                              _tunnel_options(data), _default_tunnel(data, r.get("tunnel")))
         return set_template(data, template, tunnel=tunnel)
 
     mode = util.choose("Exit mode", _mode_options(data, [
@@ -530,5 +664,5 @@ def menu_template(data: dict) -> bool:
     ]), r.get("mode") or "direct")
     tunnel = None
     if mode == "tunnel":
-        tunnel = util.choose("Tunnel", _tunnel_options(data), r.get("tunnel") or "warp")
+        tunnel = util.choose("Tunnel", _tunnel_options(data), _default_tunnel(data, r.get("tunnel")))
     return set_template(data, template, mode=mode, tunnel=tunnel)
