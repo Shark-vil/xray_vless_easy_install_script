@@ -163,9 +163,36 @@ check_updates() {
         ok "nothing to update"
         return 0
     fi
-    if have_tty && confirm "Install updates (${_UPD[*]})?" y; then
-        _apply_updates
-    else
+    if ! have_tty; then
         log "updates available: ${_UPD[*]}"
+        return 0
     fi
+    if [ "${#_UPD[@]}" -eq 1 ]; then
+        confirm "Install update (${_UPD[0]})?" y && _apply_updates
+        return 0
+    fi
+    _pick_updates && _apply_updates
+}
+
+# narrow _UPD down to what the user picks: all (default), none, or some names
+_pick_updates() {
+    local ans c picked
+    while true; do
+        ans="$(read_value "Install which: all, none, or some of: ${_UPD[*]}" all)"
+        case "${ans,,}" in
+            all) return 0 ;;
+            none|n|no) log "nothing installed"; return 1 ;;
+        esac
+        picked=()
+        for c in ${ans//,/ }; do
+            if [[ " ${_UPD[*]} " == *" $c "* ]]; then
+                picked+=("$c")
+            else
+                warn "not in the list: $c"; continue 2
+            fi
+        done
+        [ "${#picked[@]}" -gt 0 ] || continue
+        _UPD=("${picked[@]}")
+        return 0
+    done
 }

@@ -14,7 +14,9 @@ latest version of each component and offers to install the available updates:
 | hysteria2 | `hysteria version` | latest [apernet/hysteria](https://github.com/apernet/hysteria/releases) release |
 | geoip.dat / geosite.dat | file sha256 | checksums of the latest [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat/releases) release |
 
-Components that are not installed are skipped. xvei is updated last; run
+Components that are not installed are skipped. With several updates you can
+install all of them (`all`, the default), none (`none`) or only some — list
+names from the prompt, e.g. `geo` or `xray geo`. xvei is updated last; run
 `xvei` again afterwards. In a git clone xvei is updated with `git pull`.
 
 ## Firewall

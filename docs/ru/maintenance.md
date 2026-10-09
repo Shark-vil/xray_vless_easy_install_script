@@ -15,8 +15,10 @@
 | hysteria2 | `hysteria version` | последний релиз [apernet/hysteria](https://github.com/apernet/hysteria/releases) |
 | geoip.dat / geosite.dat | sha256 файла | контрольные суммы последнего релиза [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat/releases) |
 
-Неустановленные компоненты пропускаются. xvei обновляется последним, после
-этого запустите `xvei` заново. В git-клоне xvei обновляется через `git pull`.
+Неустановленные компоненты пропускаются. Если обновлений несколько, можно
+поставить все (`all`, по умолчанию), ни одного (`none`) или только часть —
+перечислить имена из списка, например `geo` или `xray geo`. xvei обновляется
+последним, после этого запустите `xvei` заново. В git-клоне xvei обновляется через `git pull`.
 
 ## Файрвол
 
