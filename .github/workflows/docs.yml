@@ -9,13 +9,11 @@ on:
     paths:
       - "docs/**"
       - "mkdocs.yml"
-      - "mkdocs_hooks.py"
       - ".github/workflows/docs.yml"
   pull_request:
     paths:
       - "docs/**"
       - "mkdocs.yml"
-      - "mkdocs_hooks.py"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 

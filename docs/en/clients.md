@@ -1,53 +1,55 @@
 # Clients
 
-[🇷🇺 Русская версия](../ru/clients.md) · [← Home](index.md)
+Apps for connecting to the server:
+[v2rayNG](https://github.com/2dust/v2rayNG/releases/latest) (Android),
+[NekoBox / nekoray](https://github.com/MatsuriDayo/nekoray/releases/latest)
+(Windows, Linux),
+[Hiddify](https://hiddify.com/) (all platforms). Use a recent version: REALITY
+and XHTTP need it. For `hysteria2` use Hiddify, NekoBox or the official
+`hysteria` client; for `turnable` — the
+[Turnable](https://github.com/TheAirBlow/Turnable/releases/latest) client.
 
-[v2rayNG](https://github.com/2dust/v2rayNG/releases/latest),
-[NekoBox / nekoray](https://github.com/MatsuriDayo/nekoray/releases/latest),
-[Hiddify](https://hiddify.com/). REALITY and XHTTP need a reasonably recent
-client build; the `hysteria2` inbound needs a Hysteria2-capable client
-(Hiddify, NekoBox, the official `hysteria` client).
+!!! danger
+    A client app sees all your traffic. Install apps only from their official
+    pages.
 
-[Turnable](https://github.com/TheAirBlow/Turnable/releases/latest) — client for the `turnable` inbound (Linux,
-Windows, macOS, Android via Termux).
+## Links and QR codes
 
-> [!CAUTION]
-> A client app sees all of your traffic. Use only apps you trust, download
-> them from their official pages, and keep in mind that every executable you
-> install is your own decision and your own risk.
+```bash
+xvei links                      # all links
+xvei qr vless_reality           # QR code to scan with a phone
+xvei client-config vless_tls    # full Xray config for apps that need a file
+```
 
-`xvei links` prints the share URIs; `xvei qr <tag>` shows a scannable code.
-Apps that cannot import a `vless://` / `ss://` link can load the full Xray
-config: `xvei client-config <tag> > <tag>.json` (not for `hysteria2`).
+Inbounds with several clients get a link per client;
+`xvei qr <tag> <client>` picks one. Menu: `xvei` → `6) Links / QR codes`.
 
-## Client-side routing tip
+## Sites of your own country directly from the phone
 
-This is about local split tunnelling on the **client device** (its own ISP
-instead of the VPN) — it has nothing to do with the server and does not expose
-its IP. The template already puts such "in-country / popular → direct" rules
-into the config from `xvei client-config <tag>`. If an app imports only the `vless://` link, add
-direct rules on the client by hand, for example for Russia:
+Opening local sites (banks, government services) through the VPN is slow and
+sometimes refused. The client app can send them directly through your
+ordinary internet. This happens on the phone, not on the server.
 
-**IP:** `geoip:private`, `geoip:ru`
-**Domains:** `geosite:private`, `geosite:category-ru`, `geosite:category-gov-ru`
+The config from `xvei client-config` already has such rules for the chosen
+template. If you import only a link, add them in the app. For Russia:
+
+- **IP:** `geoip:private`, `geoip:ru`
+- **Domains:** `geosite:private`, `geosite:category-ru`, `geosite:category-gov-ru`
 
 ### NekoBox step by step
 
-The screenshots show NekoBox with the Russian interface.
+1. **Settings → Routing settings**.
 
-1. Open **Settings → Routing settings**.
+    ![Routing settings](../img/nekoray_route_1.png)
 
-   ![Routing settings](../img/nekoray_route_1.png)
+2. The **Basic routes** tab.
 
-2. Open the **Basic routes** tab.
+    ![Basic routes](../img/nekoray_route_2.png)
 
-   ![Basic routes](../img/nekoray_route_2.png)
+3. Put the lists above into the **Direct** column.
 
-3. In the **Direct** column put the IP and domain lists from above (more
-   services of your country can be added the same way).
+    ![Direct lists](../img/nekoray_route_3.png)
 
-   ![Direct lists](../img/nekoray_route_3.png)
+4. Leave **Default outbound** as `proxy` and press **OK**.
 
-4. Keep **Default outbound** set to `proxy` and press **OK**.
-
-   ![Default outbound](../img/nekoray_route_4.png)
+    ![Default outbound](../img/nekoray_route_4.png)

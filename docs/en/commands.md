@@ -1,68 +1,73 @@
 # Commands
 
-[🇷🇺 Русская версия](../ru/commands.md) · [← Home](index.md)
+`xvei` without arguments opens the menu. Everything in the menu is also a
+command.
 
-The script is called as `xvei`:
+## Setup
 
 ```
-xvei                     interactive menu (or offer to install)
-xvei install             guided first-time setup
-xvei edit                interactive menu
-xvei apply               re-check what the config needs (certificate, services) and restart
+xvei install                    first-time setup wizard
+xvei apply                      re-check certificate and services, restart
+xvei set-meta --domain D --email E
+```
 
-xvei add-inbound  <type> [--port N] [--dest SNI] [--method M]
+## Inbounds and links
+
+```
+xvei add-inbound <type> [--port N] [--dest SITE] [--method CIPHER] [--tag T]
 xvei remove-inbound <tag>
-xvei add-outbound   <warp|tor|LINK ...> [--tag T]
-xvei remove-outbound <warp|tor|TAG>
-xvei rule add|remove <OUTBOUND|warp|tor> <matcher ...>
-                         send domains / IPs to an outbound (or stop)
-xvei rule list [OUTBOUND] all rules, numbered (or what goes to one outbound)
-xvei rule delete <N>     delete rule N
-xvei template <russia|iran|china> --exit <warp|tor|block|TAG> [--tunnel <warp|tor|TAG> | --direct]
-xvei template popular --tunnel <warp|tor|TAG>
-xvei template none [--tunnel <warp|tor|TAG> | --direct | --keep]
-xvei site [list | auth | blank | 404 | <preset> | proxy <url|preset>]
-
-xvei links [tag]         print client share links
-xvei qr <tag> [client]   QR code for one inbound (client: name or number)
-xvei client-config <tag> full Xray client config (with routing rules)
-xvei status              services + active template
-xvei show-config [file]  print config.json readably (JSON5, comments kept)
-xvei firewall [status | open | setup]   see maintenance.md, "Firewall"
-xvei set-meta [--domain D --email E ...]
-xvei backup [list [PAGE]]  backups of config.json + xvei state, 10 a page
-xvei backup create [NOTE]  back up the current config now
-xvei backup show|diff <N>  view a backup's config / what restoring it would change
-xvei backup restore <N>    roll back to it (validated like any change)
-xvei backup delete <N>
-xvei backup keep [N]       how many to keep (default 20, 0 = automatic backups off)
-xvei check-updates       check xvei / xray / hysteria2 / geo data for updates
-xvei update-geo          refresh geoip/geosite (optional; the xray installer ships them)
-xvei self-update         re-fetch the script tree
-xvei remove [--all [--packages]] [--yes]
-                         uninstall only xvei; --all: with everything it set up; asks first
+xvei links [tag]                all client links
+xvei qr <tag> [client]          QR code (client: name or number)
+xvei client-config <tag>        full Xray config for a client app
 ```
 
-Examples:
+Types: `vless-tls`, `vless-ws`, `vless-xhttp-reality`, `vless-xhttp-tls`,
+`trojan-tcp`, `trojan-ws`, `vmess-ws`, `shadowsocks`, `hysteria2`, `turnable` —
+see [inbounds](inbounds.md).
+
+## Outbounds and routing
+
+```
+xvei add-outbound warp | tor | 'LINK' [--tag T]
+xvei remove-outbound <warp|tor|tag>
+xvei rule add|remove <outbound> <matcher ...>
+xvei rule list [outbound]       all rules, numbered
+xvei rule delete <N>
+xvei template russia|iran|china --exit <outbound> [--direct | --tunnel <outbound>]
+xvei template popular --tunnel <outbound>
+xvei template none [--direct | --tunnel <outbound>]
+xvei site [auth | blank | 404 | <preset> | proxy <url>]
+```
+
+See [routing](routing.md) and [camouflage site](site.md).
+
+## Maintenance
+
+```
+xvei status                     summary and services
+xvei show-config                config.json, readable
+xvei backup [list [page]]       backups, 10 per page
+xvei backup create [note]       back up now
+xvei backup show|diff <N>       view a backup / compare with the current config
+xvei backup restore <N>         roll back
+xvei backup delete <N>
+xvei backup keep [N]            how many to keep (default 20, 0 = off)
+xvei firewall [status | open | setup]
+xvei check-updates
+xvei update-geo                 refresh the site and country lists
+xvei self-update                update xvei only
+xvei remove [--all [--packages]] [--yes]
+```
+
+See [maintenance](maintenance.md).
+
+## Examples
 
 ```bash
 xvei add-inbound vless-xhttp-reality --dest www.samsung.com
 xvei add-outbound tor
 xvei rule add tor geosite:openai
-xvei rule add block geosite:category-ads-all
-xvei template russia --exit warp --direct  # RU traffic via WARP, rest direct
-xvei template popular --tunnel tor         # popular sites direct, rest via TOR
-xvei remove-inbound hy2                    # stops & removes Hysteria2, keeps the rest
-xvei site game2048                         # serve a 2048 game on the domain
-xvei site proxy gnu                        # reverse-proxy www.gnu.org
+xvei template russia --exit warp --direct
+xvei site game2048
+xvei backup restore 1      # undo the last change
 ```
-
-## How changes are applied
-
-`/usr/local/etc/xray/config.json` is the source of truth and is read on every
-run - edits made in it by hand show up at once. A command that changes
-something works on a copy of it; a small Python engine (standard library only,
-no `pip` packages) writes the copy, `xray -test` checks it, and only then it is
-swapped in and the services restarted. If the check fails, the live config is
-left untouched. `xvei-state.json` next to it keeps only what `config.json`
-cannot hold (domain, certificate, site, Hysteria2 / Turnable settings).

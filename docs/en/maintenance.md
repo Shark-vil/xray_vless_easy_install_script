@@ -1,127 +1,84 @@
-# Updates, firewall, files
-
-[🇷🇺 Русская версия](../ru/maintenance.md) · [← Home](index.md)
-
-## Updates
-
-`xvei check-updates` (menu: `10) Updates`) prints the installed and
-latest version of each component and offers to install the available updates:
-
-| component | installed | compared with |
-|---|---|---|
-| xvei | installed commit | latest commit of `master` |
-| xray | `xray version` | latest [XTLS/Xray-core](https://github.com/XTLS/Xray-core/releases) release |
-| hysteria2 | `hysteria version` | latest [apernet/hysteria](https://github.com/apernet/hysteria/releases) release |
-| geoip.dat / geosite.dat | file sha256 | checksums of the latest [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat/releases) release |
-
-Components that are not installed are skipped. With several updates you can
-install all of them (`all`, the default), none (`none`) or only some — list
-names from the prompt, e.g. `geo` or `xray geo`. xvei is updated last; run
-`xvei` again afterwards. In a git clone xvei is updated with `git pull`.
+# Maintenance
 
 ## Backups and rollback
 
-Before every change made through xvei (inbounds, outbounds, rules, template,
-site, domain) and before a rollback, xvei backs up `config.json` exactly as it
-is (comments included) together with its own state, into
-`/usr/local/etc/xray/xvei-backups/`. A backup identical to the newest one is
-not made twice. A hand edit of `config.json` gets into the backup made before
-the next change through xvei; to keep the config as it is before editing it by
-hand, run `xvei backup create "note"` first.
+Before every change through xvei, the current `config.json` (comments
+included) and xvei's settings are saved to `/usr/local/etc/xray/xvei-backups/`.
+The last 20 are kept.
 
-Menu: `xvei` → `11) Backups` — the list, 10 a page (`n` / `p` to turn pages),
-newest first. Open one to view its `config.json`, see what restoring it would
-change (a diff against the current config), restore or delete it; `c` backs
-up the current config now, `k` sets how many backups to keep.
+Menu: `xvei` → `11) Backups`. The list shows 10 per page (`n` / `p` turn pages).
+Open a backup to view its config, see what rolling back would change, roll
+back or delete it. `c` makes a backup now, `k` sets how many to keep.
 
 ```bash
-xvei backup                 # list (xvei backup list 2 - the second page)
-xvei backup create "before tests"
-xvei backup diff 3          # what restoring backup 3 would change
-xvei backup restore 3       # asks first; the current config is backed up before
-xvei backup keep 50         # keep 50; 0 turns the automatic backups off
+xvei backup                  # list
+xvei backup restore 1        # undo the last change
+xvei backup diff 3           # what rolling back to backup 3 would change
+xvei backup create "note"    # back up now, e.g. before editing config.json by hand
+xvei backup keep 50          # keep 50; 0 = no automatic backups
 ```
 
-A restore is applied like any other change: `xray -test` checks it first and
-the live config stays as it is if the check fails. The oldest backups are
-deleted beyond the limit (20 by default). With `keep 0` nothing is backed up
-automatically and nothing is deleted; `xvei backup create` still works.
+A rollback is checked like any change, and the current config is backed up
+first, so a rollback can be undone too.
+
+## Updates
+
+```bash
+xvei check-updates
+```
+
+Shows the installed and latest versions of xvei, Xray, Hysteria2 and the
+site / country lists, then asks which to update (all by default). Menu:
+`10) Updates`. In a git clone, update xvei with `git pull`.
 
 ## Firewall
 
-xvei **never enables, resets or tightens a firewall by itself** — a wrong
-default-deny can cut you off from SSH (especially if sshd runs on a
-non-standard port).
+xvei **never turns on or tightens a firewall by itself**: a wrong setting can
+lock you out of SSH.
 
-* If **ufw** or **firewalld** is already active and blocks ports the current
-  config needs (inbound ports, plus `80/tcp` for Let's Encrypt), every apply
-  lists them and asks whether to open them. This only *adds* allow rules.
-  Without a terminal it just prints a warning.
-* `xvei firewall status` — which firewall is active, the detected SSH port(s),
-  and which needed ports are open or closed.
-* `xvei firewall open` — add allow rules for the needed ports (active firewall only).
-* `xvei firewall setup` — **opt-in** lockdown: deny all incoming except SSH +
-  xvei ports. The SSH port is detected from `sshd -T`, from what sshd listens
-  on, and from the current SSH session. The full plan is shown first, you can
-  add extra ports (e.g. `2222/tcp 27015/udp`), and nothing happens without an
-  explicit "yes". Uses ufw on Debian/Ubuntu (existing rules are kept unless
-  you choose `ufw reset`), firewalld on CentOS.
+- If ufw or firewalld is already on and blocks a port xvei needs, xvei offers
+  to open it. It only adds permissions.
+- `xvei firewall status` — which ports are open or closed.
+- `xvei firewall open` — open the ports xvei needs.
+- `xvei firewall setup` — optional lockdown: block all incoming traffic except
+  SSH and xvei's ports. The SSH port is detected automatically; the plan is
+  shown first and nothing happens without your "yes".
 
-The same actions are in the menu: `xvei` → `9) Firewall`.
+Menu: `9) Firewall`.
 
-## Certificate renewal
+## Certificate
 
-A certbot deploy hook (`/etc/letsencrypt/renewal-hooks/deploy/xvei-restart.sh`)
-is installed with the certificate: after every Let's Encrypt renewal it refreshes
-the Hysteria2 cert copy and restarts `xray`, `nginx` and `hysteria2`. Pre/post
-hooks (`renewal-hooks/{pre,post}/xvei-free-port80.sh`) stop nginx for the
-renewal challenge only if it holds `:80`, then start it again.
+The Let's Encrypt certificate renews itself. After renewal xvei's hook
+restarts Xray, nginx and Hysteria2 so they use the new certificate.
 
-## Uninstalling
+## Uninstall
 
-`xvei remove` (menu: `12) Uninstall xvei`) removes only xvei; `xvei remove
---all` removes it together with what it set up. Both show the full list first
-and do nothing until you confirm (the default answer is "no"):
+```bash
+xvei remove          # xvei only; Xray and everything else keep running
+xvei remove --all    # xvei and everything it set up
+```
 
-1. **Only xvei** (`xvei remove`, the default) — the panel itself: its code
-   (`/usr/local/lib/xvei`), the `xvei` command, the state, markers, client
-   files of older versions (`~/xray_eis`). Xray with the current `config.json`,
-   nginx and the site, WARP, TOR, Hysteria2, Turnable, certificates and
-   firewall rules keep running as they are. The certbot hook that called xvei
-   is replaced by a standalone `renewal-hooks/deploy/restart-xray.sh`, so
-   renewed certificates are still picked up.
-2. **xvei and everything it set up** (`xvei remove --all`) — on a regular
-   install also Xray (with `/usr/local/etc/xray`), Hysteria2, Turnable, the
-   WARP container, TOR, xvei's nginx site and certbot hooks. On an adopted
-   setup only what xvei added; Xray stays and you are asked whether to
-   restore `config.json.xvei-orig`. Afterwards xvei offers to remove the
-   packages it installed itself (nginx, certbot, tor, qrencode, docker —
-   docker only if no other containers are left); `curl`, `tar`, `openssl`,
-   Python and the firewall are never removed. Packages are tracked since this
-   version: what an older xvei installed is not offered.
+Both show what will be removed and ask first. Menu: `12) Uninstall xvei`.
 
-Certificates in `/etc/letsencrypt` stay in both cases. Without a terminal
-(scripts) the confirmation is passed as an option:
-`xvei remove --yes`, `xvei remove --all --yes [--packages]`. A git
-clone is not deleted; remove its folder yourself.
+- **`xvei remove`** deletes the xvei command, its files and backups. Xray, its
+  config, nginx, WARP, TOR, Hysteria2 and certificates stay and keep working.
+- **`xvei remove --all`** also removes Xray and its config, Hysteria2, Turnable,
+  WARP, TOR and xvei's nginx site. If Xray was there before xvei, Xray stays
+  and you can restore its original config. Then it asks whether to remove the
+  packages xvei installed (nginx, certbot, tor, qrencode, docker).
+
+Certificates are always kept. In scripts add `--yes` (and `--packages` to
+remove the packages without asking). A git clone is not deleted.
 
 ## Files
 
-| path | contents |
+| path | what |
 |---|---|
-| `/usr/local/etc/xray/config.json` | the Xray config, source of truth; edit by hand or through xvei (`.bak` kept) |
-| `/usr/local/etc/xray/xvei-backups/` | backups of config.json + state (`xvei backup`) |
-| `/usr/local/etc/xray/xvei-state.json` | what config.json cannot hold: domain, certificate, site, Hysteria2 / Turnable (root, `0600`) |
-| `/usr/local/etc/xray/config.json.xvei-orig` | adopted setups: the config as it was before xvei |
-| `/etc/hysteria/config.yaml` | generated Hysteria2 config (+ `cert.crt`/`cert.key`) |
-| `/etc/nginx/sites-enabled/xvei.conf` (Debian/Ubuntu) or `/etc/nginx/conf.d/xvei.conf` (CentOS), `/var/www/xvei-site` | fallback vhost + camouflage site |
-| `/etc/turnable/config.json`, `/usr/local/bin/turnable` | Turnable server config and binary |
-
-## Repository layout
-
-```
-xvei.sh            entry point + bootstrap + subcommand dispatch
-lib/*.sh           system side: package install, xray, nginx, certs, hysteria2, warp, tor, apply, menu
-pyengine/*.py      config engine (stdlib only): state, inbounds, outbounds, routing, sites, links, editor
-assets/sites/*     self-contained camouflage sites (no external requests)
-```
+| `/usr/local/etc/xray/config.json` | Xray config — edit by hand or through xvei |
+| `/usr/local/etc/xray/xvei-backups/` | backups |
+| `/usr/local/etc/xray/xvei-state.json` | xvei's settings: domain, certificate, site, Hysteria2 / Turnable |
+| `/usr/local/etc/xray/config.json.xvei-orig` | original config of a server xvei took over |
+| `/etc/hysteria/config.yaml` | Hysteria2 config |
+| `/etc/nginx/sites-enabled/xvei.conf` or `/etc/nginx/conf.d/xvei.conf`, `/var/www/xvei-site` | camouflage site |
+| `/etc/turnable/config.json` | Turnable config |
+| `/usr/local/lib/xvei` | xvei itself |

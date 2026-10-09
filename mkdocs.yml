@@ -6,12 +6,8 @@ repo_name: Shark-vil/xray_vless_easy_install_script
 edit_uri: edit/master/docs/
 
 docs_dir: docs
-hooks:
-  - mkdocs_hooks.py
-# RU.md is the GitHub entry page for the Russian docs (the site has its
-# own home pages); requirements.txt only pins the build tools
+# requirements.txt only pins the build tools
 exclude_docs: |
-  /RU.md
   /requirements.txt
 
 theme:
@@ -55,9 +51,6 @@ theme:
 
 plugins:
   - search
-  # GitHub-style "> [!WARNING]" blocks -> admonitions, so the same files
-  # render on GitHub and on the site
-  - callouts
   - i18n:
       docs_structure: folder
       reconfigure_material: true
@@ -81,7 +74,7 @@ plugins:
             Camouflage site: Сайт-прикрытие
             Commands: Команды
             How it works: Как это работает
-            Updates, firewall, files: Обновления, файрвол, файлы
+            Maintenance: Обслуживание
             Troubleshooting: Решение проблем
             Clients: Клиенты
 
@@ -99,7 +92,7 @@ nav:
   - Reference:
       - Commands: commands.md
       - How it works: architecture.md
-      - Updates, firewall, files: maintenance.md
+      - Maintenance: maintenance.md
       - Troubleshooting: troubleshooting.md
 
 markdown_extensions:

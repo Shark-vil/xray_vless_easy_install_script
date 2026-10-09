@@ -1,15 +1,20 @@
 # Camouflage site
 
-[🇷🇺 Русская версия](../ru/site.md) · [← Home](index.md)
+What a browser sees when it opens your domain. Only connection types with your
+own domain (`vless-tls`, `vless-xhttp-tls`) have one.
 
-What a normal browser sees when it opens the domain directly (the nginx
-fallback for `vless-tls` / `vless-xhttp-tls`). Change any time with `xvei site`:
+| option | what the browser sees |
+|---|---|
+| `auth` | a login prompt that never accepts anything *(default)* |
+| `blank` | a plain "It works" page |
+| `404` | "page not found" |
+| `nebula`, `critters`, `game2048`, `snake`, `notes` | a small ready-made site: solar system facts, animal encyclopedia, 2048 game, snake game, personal blog. Loads nothing from outside |
+| `proxy <url>` | a real site shown through your server. Many sites break this way; these work: `example`, `rfc`, `cern`, `gnu`, `iana` |
 
-* `auth` — HTTP Basic auth prompt against an empty file, always 401 *(default, same as the old script)*
-* `blank` / `404` — a bare page / plain 404
-* static presets — self-contained pages with **no external requests** (safe, work offline):
-  `nebula` (solar-system facts), `critters` (animal encyclopedia),
-  `game2048`, `snake`, `notes` (a personal blog)
-* `proxy <url|preset>` — reverse-proxy a real upstream. Most sites break when
-  proxied (bot walls, host checks, absolute redirects), so a few known-proxyable
-  ones are presets: `example`, `rfc`, `cern`, `gnu`, `iana`.
+```bash
+xvei site game2048
+xvei site proxy gnu
+xvei site            # list the options
+```
+
+Menu: `xvei` → `5) Camouflage site`.

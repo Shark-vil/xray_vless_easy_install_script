@@ -1,101 +1,95 @@
 # Outbounds и маршрутизация
 
-[🇬🇧 English version](../en/routing.md) · [← Главная](index.md)
+**Outbound** — куда трафик уходит с сервера: `direct` (сразу в интернет),
+`block` (отбрасывается) или второй прыжок — WARP, TOR или другой сервер.
+**Правила маршрутизации** решают, какой трафик куда идёт.
 
-## Outbounds / туннели
-`direct`, `block`, опционально **WARP** (Cloudflare, docker) или **TOR** —
-второй прыжок, скрывающий IP сервера, и **свои outbounds из share-ссылок**:
+## Второй прыжок: WARP, TOR, свой сервер
 
-* `vless://` — транспорты tcp / ws / grpc / xhttp / httpupgrade, security none / tls / reality;
-* `vmess://` — base64-JSON формата v2rayN или URL-формат, те же транспорты и security;
-* `trojan://` — те же транспорты и security, по умолчанию `tls`;
-* `ss://` — SIP002 (base64 или открытый `method:password`) и старый полностью base64-формат;
-  AEAD и 2022 шифры (`aes-128-gcm`, `aes-256-gcm`, `chacha20-ietf-poly1305`,
-  `xchacha20-ietf-poly1305`, `2022-blake3-*`);
-* `socks://`, `socks5://` — с `user:pass` или без (в том числе base64-формат v2rayN);
-* `http://`, `https://` — с `user:pass` или без.
-
-Не поддерживаются: `hysteria2://`; ссылки с `allowInsecure=1` (в актуальном
-Xray эта опция удалена); потоковые шифры Shadowsocks (`aes-256-cfb` и т.п.) и
-плагины; старый VMess с `alterId > 0`.
-
-Добавленный outbound получает тег (`vless1`, `socks1`, … или `--tag`). Как и
-любой outbound в `config.json`, он может быть целью правил (`xvei rule add
-<тег> …`), туннелем шаблона (`--tunnel <тег>`) и выходом для внутристранового
-трафика (`--exit <тег>`). Часть ссылки после `#`
-показывается только как подпись.
-
-Добавить outbound (одинарные кавычки обязательны: в ссылке есть `&`):
+Второй прыжок скрывает IP сервера от сайтов, которые вы открываете.
 
 ```bash
-xvei add-outbound 'vless://UUID@example.com:443?security=reality&sni=example.com&pbk=KEY&sid=ID&type=tcp&flow=xtls-rprx-vision' --tag fi
+xvei add-outbound warp    # Cloudflare WARP (работает в docker)
+xvei add-outbound tor
 ```
 
-Добавить несколько сразу:
+Другой сервер добавляется по его ссылке. Берите ссылку в кавычки — в ней
+есть `&`:
 
 ```bash
-xvei add-outbound 'socks5://user:pass@203.0.113.30:1080' 'http://user:pass@203.0.113.40:8080'
+xvei add-outbound 'vless://UUID@example.com:443?security=reality&sni=example.com&pbk=KEY&sid=ID&type=tcp' --tag fi
 ```
 
-Пустить через него трафик OpenAI:
+Поддерживаются: `vless://`, `vmess://`, `trojan://` (tcp / ws / grpc / xhttp /
+httpupgrade; none / tls / reality), `ss://` (шифры AEAD и 2022),
+`socks5://`, `http://`. Не поддерживаются: `hysteria2://`, ссылки с
+`allowInsecure=1`, старые шифры и плагины Shadowsocks, VMess с `alterId > 0`.
 
-```bash
-xvei rule add fi geosite:openai
-```
-
-Пустить через него весь трафик:
-
-```bash
-xvei template none --tunnel fi
-```
-
-Удалить:
-
-```bash
-xvei remove-outbound fi
-```
-
-Outbound, который используется как туннель или выход шаблона, нельзя удалить,
-пока шаблон не переключён. Меню: `xvei` → `2) Outbounds` → `Add from share link`.
-
-## Шаблоны маршрутизации
-Выбираются при установке (потом меняются через `xvei template`). Это правила
-для **сервера**: то, что уходит с реального IP VPS, а не с устройства клиента.
-
-* **Шаблон страны** — `russia` / `iran` / `china` / `none`.
-  Внутристрановые адреса (`geoip:<cc>` + локальные категории `geosite`)
-  **никогда** не идут напрямую с сервера — прямой выход VPS в сети РФ/Ирана/
-  Китая палит его реальный IP перед этой сетью и рискует довести до блокировки.
-  Вместо этого такой трафик обязателен `--exit warp|tor|block|<тег>`:
-  * `warp` / `tor` / добавленный outbound — уходит вторым прыжком, IP сервера не светится;
-  * `block` — просто блокируется.
-  Остальной (не внутристрановой) трафик идёт по обычному режиму выхода:
-  * `--direct` — напрямую наружу;
-  * `--tunnel warp|tor|<тег>` — через туннель.
-* **Шаблон «Популярное напрямую»** — `popular`.
-  Общемировые сервисы (`geosite:youtube`, `instagram`, `google`, `telegram`,
-  `netflix`, `github` и т.д. — теги, которые есть практически в любой сборке
-  geosite.dat) идут напрямую для скорости; весь остальной трафик обязателен
-  `--tunnel warp|tor|<тег>`.
+По тегу (`fi` выше, по умолчанию `vless1`, `socks1`…) на outbound ссылаются
+правила и шаблоны. Удалить: `xvei remove-outbound fi` (пока его не использует
+правило). Меню: `xvei` → `2) Outbounds`.
 
 ## Свои правила
 
-Направляйте домены / IP в любой outbound из `config.json` — `direct`, `block`,
-`warp` / `tor` (xvei поднимет их при необходимости) или любой тег:
+Направить сайты или адреса в outbound:
 
 ```bash
-xvei rule add direct geosite:apple domain:example.com
-xvei rule add warp geosite:openai
-xvei rule add gemini_proxy geosite:google-gemini
-xvei rule remove warp geosite:openai
+xvei rule add fi geosite:openai          # OpenAI через сервер "fi"
+xvei rule add block geosite:category-ads-all
+xvei rule add direct domain:example.com
+xvei rule remove fi geosite:openai
 ```
 
-Матчеры: `geosite:…`, `geoip:…`, `domain:…`, `full:…`, `regexp:…`,
-`keyword:…`, IP или CIDR (`1.2.3.0/24`); просто имя превращается в
-`domain:…`. Они дописываются в правило, которое уже отправляет такие матчеры в
-этот outbound, или в новое правило наверху — так они проверяются раньше
-шаблона.
+Что можно указывать: `geosite:…` (списки сайтов, например `geosite:youtube`),
+`geoip:…` (страны, например `geoip:de`), `domain:…`, `full:…`, `regexp:…`,
+`keyword:…`, IP или подсеть (`1.2.3.0/24`). Просто имя вроде `example.com`
+означает `domain:example.com`.
 
-`xvei rule list` показывает все правила из `config.json` с номерами, включая
-написанные вручную; `xvei rule delete <N>` удаляет любое. Меню:
-`xvei` → `3) Routing rules`.
+`xvei rule list` показывает все правила с номерами, включая написанные вручную
+в `config.json`; `xvei rule delete <N>` удаляет правило. Меню: `xvei` →
+`3) Routing rules`.
+
+## Шаблоны
+
+Шаблон — готовый набор правил для сервера.
+
+**Страна** — `russia`, `iran`, `china`. Сайты этой страны **никогда** не
+открываются с собственного IP сервера: зарубежный сервер, который ходит на них
+напрямую, замечают и блокируют. Они идут через второй прыжок или блокируются:
+
+```bash
+xvei template russia --exit warp --direct    # российские сайты через WARP, остальное напрямую
+xvei template russia --exit block --tunnel tor
+```
+
+**Популярное** — крупные международные сервисы (YouTube, Google, Instagram,
+Telegram, Netflix, GitHub…) идут напрямую ради скорости, остальное через
+туннель:
+
+```bash
+xvei template popular --tunnel warp
+```
+
+**Без шаблона** — задаётся только, куда идёт всё остальное:
+
+```bash
+xvei template none --direct       # всё напрямую
+xvei template none --tunnel fi    # всё через "fi"
+```
+
+Без `--direct` и `--tunnel` правило «всё остальное» не меняется. Меню:
+`xvei` → `4) Routing template`.
+
+## Порядок правил
+
+Правила проверяются сверху вниз, срабатывает первое подходящее. Трафик, под
+который не подошло ни одно, идёт в первый outbound. Новый конфиг выглядит так:
+
+1. **Защита** — блокируются BitTorrent, локальные адреса и порты общего доступа
+   к файлам Windows.
+2. **Ваши правила** — сюда добавляет `xvei rule add`.
+3. **Шаблон** — сайты страны или популярные.
+4. **Всё остальное** — напрямую или через туннель.
+
+Всё это — обычные правила в `config.json`. Правило шаблона, изменённое
+вручную, перестаёт быть частью шаблона и становится вашим.
