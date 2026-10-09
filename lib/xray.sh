@@ -45,7 +45,11 @@ show_config() {
     local f="${1:-$XRAY_CONFIG}"
     [ -f "$f" ] || { err "no such file: $f"; return 1; }
     if [ -t 1 ] && command -v less >/dev/null 2>&1; then
-        py pretty "$f" --color | less -RFX
+        local keys="q - back, Up/Down/Space/PgUp/PgDn - scroll, /text - search, n - next match, g/G - top/bottom"
+        log "viewing $f"
+        log "keys: $keys"
+        # the same hint stays in less's status line while the file is shown
+        py pretty "$f" --color | less -RFX -Ps"$keys"
     elif [ -t 1 ]; then
         py pretty "$f" --color
     else
