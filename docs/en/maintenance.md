@@ -49,38 +49,33 @@ the Hysteria2 cert copy and restarts `xray`, `nginx` and `hysteria2`. Pre/post
 hooks (`renewal-hooks/{pre,post}/xvei-free-port80.sh`) stop nginx for the
 renewal challenge only if it holds `:80`, then start it again.
 
-## Removing xvei (keeping Xray)
+## Uninstalling
 
-**Adopted setup** (Xray was there before xvei): `xvei remove` (menu:
-`11) Uninstall xvei`) already keeps Xray. It removes only what xvei set up
-itself (WARP, TOR, Hysteria2, Turnable, its nginx vhost, certbot hooks), asks
-whether to restore `config.json.xvei-orig`, and deletes the xvei state. Xray,
-its service and certificates stay. Then remove the command and code:
+`xvei remove` (menu: `11) Uninstall xvei`) removes only xvei; `xvei remove
+--all` removes it together with what it set up. Both show the full list first
+and do nothing until you confirm (the default answer is "no"):
 
-```bash
-sed -i '/_renew-hook/d' /etc/letsencrypt/renewal/*.conf
-rm -f /usr/local/bin/xvei
-rm -rf /usr/local/lib/xvei      # or your git clone folder
-```
+1. **Only xvei** (`xvei remove`, the default) — the panel itself: its code
+   (`/usr/local/lib/xvei`), the `xvei` command, the state, markers, client
+   files of older versions (`~/xray_eis`). Xray with the current `config.json`,
+   nginx and the site, WARP, TOR, Hysteria2, Turnable, certificates and
+   firewall rules keep running as they are. The certbot hook that called xvei
+   is replaced by a standalone `renewal-hooks/deploy/restart-xray.sh`, so
+   renewed certificates are still picked up.
+2. **xvei and everything it set up** (`xvei remove --all`) — on a regular
+   install also Xray (with `/usr/local/etc/xray`), Hysteria2, Turnable, the
+   WARP container, TOR, xvei's nginx site and certbot hooks. On an adopted
+   setup only what xvei added; Xray stays and you are asked whether to
+   restore `config.json.xvei-orig`. Afterwards xvei offers to remove the
+   packages it installed itself (nginx, certbot, tor, qrencode, docker —
+   docker only if no other containers are left); `curl`, `tar`, `openssl`,
+   Python and the firewall are never removed. Packages are tracked since this
+   version: what an older xvei installed is not offered.
 
-**Regular install** (xvei installed Xray): `xvei remove` uninstalls Xray too.
-To remove only xvei and leave everything running as it is now (Xray with the
-current `config.json`, nginx, WARP, TOR, Hysteria2), delete xvei's files by
-hand:
-
-```bash
-rm -f /usr/local/etc/xray/xvei-state.json /usr/local/etc/xray/xvei-state.json.bak
-rm -rf /var/lib/xvei
-rm -f /etc/letsencrypt/renewal-hooks/deploy/xvei-restart.sh
-rm -f /etc/letsencrypt/renewal-hooks/{pre,post}/xvei-free-port80.sh
-sed -i '/_renew-hook/d' /etc/letsencrypt/renewal/*.conf
-rm -f /usr/local/bin/xvei
-rm -rf /usr/local/lib/xvei      # or your git clone folder
-rm -rf ~/xray_eis               # left by older xvei versions, if present
-```
-
-Without the certbot hooks, restart Xray yourself after a certificate renewal
-(`systemctl restart xray`), or add your own deploy hook.
+Certificates in `/etc/letsencrypt` stay in both cases. Without a terminal
+(scripts) the confirmation is passed as an option:
+`xvei remove --yes`, `xvei remove --all --yes [--packages]`. A git
+clone is not deleted; remove its folder yourself.
 
 ## Files
 

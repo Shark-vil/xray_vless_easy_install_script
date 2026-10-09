@@ -100,7 +100,43 @@ EOF
     fi
 }
 
+# `xvei remove` (only xvei): certificates keep being renewed, but the deploy hook
+# calls xvei - swap it for a standalone one that does the same restarts.
+cert_hook_standalone() {
+    local old="/etc/letsencrypt/renewal-hooks/deploy/xvei-restart.sh"
+    [ -e "$old" ] || return 0
+    local hy2=""
+    if [ -f "$HY2_CONFIG" ] && [ "$(state_get cert.mode)" = "letsencrypt" ]; then
+        hy2="install -m 644 \"$(state_get cert.fullchain)\" $HY2_DIR/cert.crt
+install -m 640 \"$(state_get cert.privkey)\" $HY2_DIR/cert.key
+chgrp hysteria $HY2_DIR/cert.key 2>/dev/null || chmod 644 $HY2_DIR/cert.key"
+    fi
+    cat > /etc/letsencrypt/renewal-hooks/deploy/restart-xray.sh <<EOF
+#!/bin/sh
+# Left by xvei on uninstall: after a Let's Encrypt renewal, restart the
+# services that hold the certificate open.
+$hy2
+systemctl restart xray.service 2>/dev/null || true
+systemctl is-active --quiet nginx && systemctl restart nginx.service
+systemctl is-enabled --quiet $HY2_SERVICE 2>/dev/null && systemctl restart $HY2_SERVICE
+exit 0
+EOF
+    chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-xray.sh
+    rm -f "$old"
+    _cert_drop_renew_hook_line
+}
+
+# the per-domain line _cert_install_deploy_hook adds for older certbot builds
+_cert_drop_renew_hook_line() {
+    local f
+    for f in /etc/letsencrypt/renewal/*.conf; do
+        [ -f "$f" ] && sed -i '/^\s*renew_hook\s*=.*xvei _renew-hook/d' "$f"
+    done
+    return 0
+}
+
 cert_hook_teardown() {
+    _cert_drop_renew_hook_line
     rm -f /etc/letsencrypt/renewal-hooks/deploy/xvei-restart.sh           /etc/letsencrypt/renewal-hooks/pre/xvei-free-port80.sh           /etc/letsencrypt/renewal-hooks/post/xvei-free-port80.sh
 }
 

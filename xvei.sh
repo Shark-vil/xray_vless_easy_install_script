@@ -58,7 +58,7 @@ fi
 
 # --- load modules ------------------------------------------------------
 # shellcheck source=lib/common.sh
-for m in common deps adopt xray nginx certs hysteria2 turnable warp tor firewall update apply menu; do
+for m in common deps adopt xray nginx certs hysteria2 turnable warp tor firewall update apply uninstall menu; do
     # shellcheck disable=SC1090
     source "$XVEI_ROOT/lib/$m.sh"
 done
@@ -89,25 +89,6 @@ wizard_install() {
     py show-links
     echo
     log "full client config with routing rules: xvei client-config <tag>"
-}
-
-xvei_remove() {
-    require_root
-    if state_exists && is_adopted; then
-        remove_adopted
-        return
-    fi
-    log "stopping services"
-    systemctl disable --now xray.service 2>/dev/null || true
-    hy2_remove_pkg
-    turnable_down
-    warp_down
-    tor_down
-    xray_remove_pkg
-    nginx_teardown
-    cert_hook_teardown
-    rm -rf "$XRAY_DIR" "$HY2_DIR" "$LEGACY_CLIENT_DIR" "$XVEI_MARKERS"
-    ok "xvei removed"
 }
 
 self_update() {
@@ -172,7 +153,10 @@ xvei - a simple Xray server setup manager
                            latest releases and offer to update
   xvei update-geo          refresh geoip/geosite
   xvei self-update         re-fetch the script tree
-  xvei remove              uninstall everything
+  xvei remove [--all [--packages]] [--yes]
+                           uninstall only xvei (Xray keeps running);
+                           --all: xvei and everything it set up;
+                           always asks for confirmation unless --yes
 EOF
 }
 
@@ -208,7 +192,7 @@ case "$cmd" in
     check-updates)       check_updates ;;
     update-geo)          require_root; xray_update_geo; xray_restart; ok "geo updated" ;;
     self-update)         self_update ;;
-    remove|uninstall)    xvei_remove ;;
+    remove|uninstall)    xvei_remove "$@" ;;
     _renew-hook)         require_root; cert_renew_hook_run ;;
     help|-h|--help)      print_help ;;
     *)                   err "unknown command: $cmd"; print_help; exit 1 ;;

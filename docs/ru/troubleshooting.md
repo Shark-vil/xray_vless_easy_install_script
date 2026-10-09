@@ -103,7 +103,7 @@ xvei apply
 xvei):
 
 ```bash
-xvei remove
+xvei remove --all
 ```
 
 Затем установите заново, как в разделе [первая установка](getting-started.md).

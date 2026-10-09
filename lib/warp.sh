@@ -8,6 +8,7 @@ _docker_install() {
     command -v docker >/dev/null 2>&1 && return 0
     log "installing docker"
     curl -fsSL https://get.docker.com | sh || die "docker install failed"
+    record_pkg docker
     systemctl enable --now docker
 }
 

@@ -79,12 +79,32 @@ pkg_install() {
     esac
 }
 
+# Packages xvei installed itself (not ones that were already there), so that
+# `xvei remove` can offer to remove them again.
+XVEI_PKG_LIST="/var/lib/xvei/packages"
+record_pkg() {
+    mkdir -p "${XVEI_PKG_LIST%/*}"
+    grep -qxF "$1" "$XVEI_PKG_LIST" 2>/dev/null || echo "$1" >> "$XVEI_PKG_LIST"
+}
+
 # ensure_bin <binary> [package]
 ensure_bin() {
     local bin="$1" pkg="${2:-$1}"
     command -v "$bin" >/dev/null 2>&1 && return 0
     pkg_install "$pkg"
     command -v "$bin" >/dev/null 2>&1 || die "failed to install '$bin'"
+    record_pkg "$pkg"
+}
+
+pkg_remove() {
+    detect_pkg
+    log "removing $*"
+    case "$_PKG" in
+        apt-get) DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq "$@" ;;
+        dnf|yum) "$_PKG" remove -y "$@" ;;
+        zypper)  zypper --non-interactive remove "$@" ;;
+        pacman)  pacman -Rns --noconfirm "$@" ;;
+    esac
 }
 
 # certbot, tor and qrencode are not in the base RHEL-family repos, only in EPEL.

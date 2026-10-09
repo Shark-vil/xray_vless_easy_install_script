@@ -56,7 +56,8 @@ adopt_existing() {
     log "write the original is saved as $XRAY_CONFIG.xvei-orig"
 }
 
-# `xvei remove` on an adopted setup: undo only what xvei added
+# `xvei remove --all` on an adopted setup: undo only what xvei added (the xvei
+# files themselves go in lib/uninstall.sh)
 remove_adopted() {
     log "this Xray setup was adopted: removing only what xvei added"
     xvei_owns hysteria2 && hy2_remove_pkg
@@ -65,13 +66,12 @@ remove_adopted() {
     tor_down
     nginx_teardown
     cert_hook_teardown
-    if [ -f "$XRAY_CONFIG.xvei-orig" ] \
+    # without a terminal the current config is kept
+    if [ -f "$XRAY_CONFIG.xvei-orig" ] && have_tty \
         && confirm "Restore the original config.json (as it was before xvei)?" y; then
         cp -f "$XRAY_CONFIG.xvei-orig" "$XRAY_CONFIG"
         xray_restart
         check_service xray || true
     fi
-    rm -f "$XVEI_STATE" "$XVEI_STATE.bak"
-    rm -rf "$LEGACY_CLIENT_DIR" "$XVEI_MARKERS"
-    ok "xvei removed; Xray itself stays installed"
+    log "Xray itself stays installed"
 }

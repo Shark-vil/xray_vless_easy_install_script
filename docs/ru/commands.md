@@ -32,7 +32,8 @@ xvei set-meta [--domain D --email E ...]
 xvei check-updates       проверить обновления xvei / xray / hysteria2 / geo-данных
 xvei update-geo          обновить geoip/geosite (необязательно; их ставит установщик xray)
 xvei self-update         перекачать дерево скриптов
-xvei remove              полное удаление
+xvei remove [--all [--packages]] [--yes]
+                         удалить только xvei; --all: вместе со всем, что он настроил; спрашивает подтверждение
 ```
 
 Примеры:

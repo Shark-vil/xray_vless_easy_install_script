@@ -101,7 +101,7 @@ Remove everything xvei installed (on an adopted server — only what xvei
 added):
 
 ```bash
-xvei remove
+xvei remove --all
 ```
 
 Then install again as in [getting started](getting-started.md).

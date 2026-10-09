@@ -32,7 +32,8 @@ xvei set-meta [--domain D --email E ...]
 xvei check-updates       check xvei / xray / hysteria2 / geo data for updates
 xvei update-geo          refresh geoip/geosite (optional; the xray installer ships them)
 xvei self-update         re-fetch the script tree
-xvei remove              uninstall everything
+xvei remove [--all [--packages]] [--yes]
+                         uninstall only xvei; --all: with everything it set up; asks first
 ```
 
 Examples:

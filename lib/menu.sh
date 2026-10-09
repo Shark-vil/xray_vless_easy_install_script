@@ -72,7 +72,7 @@ main_menu() {
             8) show_config ;;
             9) menu_firewall ;;
             10) check_updates ;;
-            11) confirm "Really uninstall xvei and all services?" n && { xvei_remove; return; } ;;
+            11) xvei_remove && exit 0 ;;
             0|"") return 0 ;;
             *) warn "unknown choice" ;;
         esac
