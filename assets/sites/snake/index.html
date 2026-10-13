@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Snake</title>
+<style>
+  body{margin:0;background:#12151c;color:#d7e0ef;font:15px/1.5 system-ui,Segoe UI,Roboto,Arial,sans-serif;display:flex;flex-direction:column;align-items:center;padding:24px 12px}
+  h1{margin:0 0 4px;font-weight:700;letter-spacing:1px}
+  .hud{display:flex;gap:20px;margin:10px 0}
+  .hud b{color:#7fd6a0}
+  canvas{background:#0c0f15;border:1px solid #2a3140;border-radius:8px;touch-action:none;max-width:92vw;height:auto}
+  button{margin-top:14px;background:#2a3140;color:#d7e0ef;border:1px solid #3a4353;border-radius:6px;padding:9px 18px;cursor:pointer}
+  p{color:#8894a8;font-size:13px}
+</style>
+</head>
+<body>
+<h1>SNAKE</h1>
+<div class="hud"><span>Score <b id="s">0</b></span><span>Best <b id="b">0</b></span></div>
+<canvas id="c" width="400" height="400"></canvas>
+<button id="r">Restart</button>
+<p>Arrow keys or WASD. On touch, swipe on the board.</p>
+<script>
+const cv=document.getElementById('c'),x=cv.getContext('2d'),G=20,CELL=cv.width/G;
+let snake,dir,nd,food,score,best=+(localStorage.getItem('bestSnake')||0),timer,alive;
+document.getElementById('b').textContent=best;
+function reset(){
+  snake=[{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+  dir=nd={x:1,y:0};score=0;alive=true;
+  document.getElementById('s').textContent=0;
+  placeFood();
+  clearInterval(timer);timer=setInterval(tick,110);
+}
+function placeFood(){
+  do{food={x:Math.random()*G|0,y:Math.random()*G|0};}
+  while(snake.some(s=>s.x===food.x&&s.y===food.y));
+}
+function tick(){
+  dir=nd;
+  const head={x:(snake[0].x+dir.x+G)%G,y:(snake[0].y+dir.y+G)%G};
+  if(snake.some(s=>s.x===head.x&&s.y===head.y)){
+    alive=false;clearInterval(timer);
+    if(score>best){best=score;localStorage.setItem('bestSnake',best);document.getElementById('b').textContent=best;}
+    draw();x.fillStyle='#d7e0ef';x.font='20px system-ui';x.textAlign='center';
+    x.fillText('Game over',cv.width/2,cv.height/2);return;
+  }
+  snake.unshift(head);
+  if(head.x===food.x&&head.y===food.y){score++;document.getElementById('s').textContent=score;placeFood();}
+  else snake.pop();
+  draw();
+}
+function draw(){
+  x.fillStyle='#0c0f15';x.fillRect(0,0,cv.width,cv.height);
+  x.fillStyle='#e2687a';x.fillRect(food.x*CELL+2,food.y*CELL+2,CELL-4,CELL-4);
+  snake.forEach((s,i)=>{x.fillStyle=i?'#4c9d6e':'#7fd6a0';x.fillRect(s.x*CELL+1,s.y*CELL+1,CELL-2,CELL-2);});
+}
+function turn(k){
+  const map={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],
+             w:[0,-1],s:[0,1],a:[-1,0],d:[1,0]};
+  const m=map[k];if(!m)return;
+  if(m[0]===-dir.x&&m[1]===-dir.y)return;
+  nd={x:m[0],y:m[1]};
+}
+addEventListener('keydown',e=>{if(e.key in {ArrowUp:1,ArrowDown:1,ArrowLeft:1,ArrowRight:1})e.preventDefault();turn(e.key.length===1?e.key.toLowerCase():e.key);});
+let sx,sy;
+cv.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
+cv.addEventListener('touchmove',e=>{
+  const dx=e.touches[0].clientX-sx,dy=e.touches[0].clientY-sy;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<20)return;
+  turn(Math.abs(dx)>Math.abs(dy)?(dx>0?'ArrowRight':'ArrowLeft'):(dy>0?'ArrowDown':'ArrowUp'));
+  sx=e.touches[0].clientX;sy=e.touches[0].clientY;
+},{passive:true});
+document.getElementById('r').onclick=reset;
+reset();
+</script>
+</body>
+</html>

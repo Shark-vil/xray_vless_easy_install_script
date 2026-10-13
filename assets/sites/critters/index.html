@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Critters — a tiny animal encyclopedia</title>
+<style>
+  :root{--bg:#f6f4ee;--fg:#2b2a26;--muted:#6b6a63;--card:#fff;--accent:#3b7d54;--line:#e2ded2}
+  *{box-sizing:border-box}
+  body{margin:0;font:16px/1.6 Georgia,"Times New Roman",serif;background:var(--bg);color:var(--fg)}
+  header{padding:44px 20px 10px;text-align:center}
+  h1{margin:0;font-size:32px}
+  header p{color:var(--muted);margin:6px 0 0}
+  .bar{max-width:960px;margin:20px auto 0;padding:0 20px;text-align:center}
+  input{font:inherit;padding:9px 14px;width:min(360px,90%);border:1px solid var(--line);border-radius:8px;background:var(--card)}
+  main{max-width:960px;margin:20px auto 60px;padding:0 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+  .card h2{margin:0 0 2px;font-size:20px}
+  .card .sci{color:var(--muted);font-style:italic;font-size:14px}
+  .card p{margin:10px 0 0}
+  .tag{display:inline-block;margin-top:12px;font-size:12px;font-family:system-ui,sans-serif;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:2px 10px}
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:20px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Critters</h1>
+  <p>Short notes on animals I find interesting. Updated whenever I read something new.</p>
+</header>
+<div class="bar"><input id="q" type="search" placeholder="Filter by name or habitat…" autocomplete="off"></div>
+<main id="grid"></main>
+<footer>A personal project · sources: field guides and museum placards</footer>
+<script>
+const animals=[
+ {n:"Axolotl",s:"Ambystoma mexicanum",h:"freshwater",t:"Amphibian",
+  p:"A salamander that never grows up: it keeps its gills and stays aquatic for life. It can regrow limbs, parts of the heart, and even bits of brain."},
+ {n:"Pangolin",s:"Manis",h:"forest, savanna",t:"Mammal",
+  p:"The only mammal fully covered in scales, made of keratin like our nails. When threatened it rolls into a ball that big predators cannot open."},
+ {n:"Mantis shrimp",s:"Stomatopoda",h:"tropical reefs",t:"Crustacean",
+  p:"Its club-like limbs strike at the speed of a .22 bullet, fast enough to boil the water around them. Its eyes see more colour channels than any known animal."},
+ {n:"Arctic tern",s:"Sterna paradisaea",h:"coasts, open ocean",t:"Bird",
+  p:"Migrates from the Arctic to the Antarctic and back every year, roughly 70,000 km. Over a lifetime that is several trips to the Moon and back."},
+ {n:"Tardigrade",s:"Tardigrada",h:"moss, soil, sea",t:"Micro-animal",
+  p:"Under a millimetre long. It can dry out almost completely, survive boiling and freezing, and has been revived after decades of dormancy."},
+ {n:"Okapi",s:"Okapia johnstoni",h:"Congo rainforest",t:"Mammal",
+  p:"A close relative of the giraffe with a shorter neck and zebra-striped legs. It was unknown to science until 1901 and is rarely seen in the wild."},
+ {n:"Cuttlefish",s:"Sepiida",h:"shallow seas",t:"Cephalopod",
+  p:"Changes colour and texture in a fraction of a second using millions of pigment cells, despite being colour-blind. Has three hearts and blue-green blood."},
+ {n:"Honey badger",s:"Mellivora capensis",h:"dry grassland",t:"Mammal",
+  p:"Loose, thick skin lets it twist free from a bite. Known to shrug off bee stings and snake venom that would kill animals many times its size."},
+ {n:"Lyrebird",s:"Menura",h:"Australian forest",t:"Bird",
+  p:"One of the best mimics alive. It copies other birds, and sometimes chainsaws, camera shutters and car alarms, weaving them into its song."},
+];
+const grid=document.getElementById('grid');
+function render(list){
+  grid.innerHTML=list.map(a=>`<div class="card"><h2>${a.n}</h2>
+   <div class="sci">${a.s}</div><p>${a.p}</p>
+   <span class="tag">${a.t} · ${a.h}</span></div>`).join('')
+   || '<p>No matches.</p>';
+}
+document.getElementById('q').addEventListener('input',e=>{
+  const v=e.target.value.toLowerCase().trim();
+  render(animals.filter(a=>(a.n+a.h+a.t+a.s).toLowerCase().includes(v)));
+});
+render(animals);
+</script>
+</body>
+</html>

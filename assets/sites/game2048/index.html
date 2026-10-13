@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2048</title>
+<style>
+  :root{--bg:#faf8ef;--fg:#776e65;--grid:#bbada0;--cell:#cdc1b4}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 "Clear Sans",system-ui,Helvetica,Arial,sans-serif;display:flex;flex-direction:column;align-items:center;padding:24px 12px}
+  h1{font-size:56px;margin:0}
+  .row{display:flex;justify-content:space-between;width:340px;max-width:92vw;align-items:center;margin:8px 0 16px}
+  .score{background:var(--grid);color:#fff;border-radius:6px;padding:8px 16px;text-align:center;font-weight:700}
+  .score span{display:block;font-size:12px;font-weight:400;color:#eee4da}
+  button{background:#8f7a66;color:#f9f6f2;border:0;border-radius:6px;padding:10px 16px;font-weight:700;cursor:pointer}
+  #board{position:relative;width:340px;height:340px;max-width:92vw;max-height:92vw;background:var(--grid);border-radius:8px;padding:10px}
+  .grid-cell{position:absolute;width:75px;height:75px;background:var(--cell);border-radius:4px}
+  .tile{position:absolute;width:75px;height:75px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:32px;transition:left .1s,top .1s;background:#eee4da}
+  .t4{background:#ede0c8}.t8{background:#f2b179;color:#f9f6f2}.t16{background:#f59563;color:#f9f6f2}
+  .t32{background:#f67c5f;color:#f9f6f2}.t64{background:#f65e3b;color:#f9f6f2}.t128{background:#edcf72;color:#f9f6f2;font-size:28px}
+  .t256{background:#edcc61;color:#f9f6f2;font-size:28px}.t512{background:#edc850;color:#f9f6f2;font-size:28px}
+  .t1024{background:#edc53f;color:#f9f6f2;font-size:22px}.t2048{background:#edc22e;color:#f9f6f2;font-size:22px}
+  p.hint{color:#a89a86;font-size:14px}
+  #msg{margin-top:10px;font-weight:700;height:22px}
+</style>
+</head>
+<body>
+<h1>2048</h1>
+<div class="row">
+  <div class="score">SCORE<span id="score">0</span></div>
+  <button id="new">New Game</button>
+  <div class="score">BEST<span id="best">0</span></div>
+</div>
+<div id="board"></div>
+<div id="msg"></div>
+<p class="hint">Use the arrow keys (or swipe) to join the numbers and get to 2048.</p>
+<script>
+const N=4, board=document.getElementById('board');
+let grid, score, best=+(localStorage.getItem('best2048')||0);
+document.getElementById('best').textContent=best;
+const px=i=>10+i*(75+ (340-20-4*75)/3);
+function build(){
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const d=document.createElement('div');d.className='grid-cell';
+    d.style.left=px(c)+'px';d.style.top=px(r)+'px';board.appendChild(d);
+  }
+}
+function reset(){
+  grid=Array.from({length:N},()=>Array(N).fill(0));
+  score=0;document.getElementById('score').textContent=0;
+  document.getElementById('msg').textContent='';
+  add();add();draw();
+}
+function add(){
+  const e=[];grid.forEach((row,r)=>row.forEach((v,c)=>{if(!v)e.push([r,c])}));
+  if(!e.length)return;
+  const [r,c]=e[Math.random()*e.length|0];
+  grid[r][c]=Math.random()<0.9?2:4;
+}
+function draw(){
+  board.querySelectorAll('.tile').forEach(t=>t.remove());
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const v=grid[r][c];if(!v)continue;
+    const t=document.createElement('div');
+    t.className='tile t'+v;t.textContent=v;
+    t.style.left=px(c)+'px';t.style.top=px(r)+'px';
+    board.appendChild(t);
+  }
+}
+function slide(row){
+  let a=row.filter(x=>x);
+  for(let i=0;i<a.length-1;i++)if(a[i]===a[i+1]){a[i]*=2;score+=a[i];a.splice(i+1,1);}
+  while(a.length<N)a.push(0);
+  return a;
+}
+function rotate(g){return g[0].map((_,c)=>g.map(row=>row[c]).reverse());}
+function move(dir){
+  const before=JSON.stringify(grid);
+  for(let i=0;i<dir;i++)grid=rotate(grid);
+  grid=grid.map(slide);
+  for(let i=0;i<(4-dir)%4;i++)grid=rotate(grid);
+  if(JSON.stringify(grid)!==before){
+    add();draw();
+    document.getElementById('score').textContent=score;
+    if(score>best){best=score;localStorage.setItem('best2048',best);document.getElementById('best').textContent=best;}
+    if(!moves())document.getElementById('msg').textContent='No moves left — New Game?';
+    if(grid.flat().includes(2048))document.getElementById('msg').textContent='You made 2048!';
+  }
+}
+function moves(){
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    if(!grid[r][c])return true;
+    if(c<N-1&&grid[r][c]===grid[r][c+1])return true;
+    if(r<N-1&&grid[r][c]===grid[r+1][c])return true;
+  }
+  return false;
+}
+addEventListener('keydown',e=>{
+  const m={ArrowLeft:0,ArrowUp:1,ArrowRight:2,ArrowDown:3};
+  if(e.key in m){e.preventDefault();move(m[e.key]);}
+});
+let sx,sy;
+board.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
+board.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;
+  move(Math.abs(dx)>Math.abs(dy)?(dx>0?2:0):(dy>0?3:1));
+});
+document.getElementById('new').onclick=reset;
+build();reset();
+</script>
+</body>
+</html>

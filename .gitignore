@@ -1,0 +1,9 @@
+*.code-workspace
+*.bak
+scratch-*
+/out/
+__pycache__/
+*.pyc
+
+# MkDocs build output
+/site/

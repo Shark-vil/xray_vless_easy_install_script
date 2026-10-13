@@ -1,0 +1,217 @@
+#!/usr/bin/env bash
+# xvei - a simple Xray server setup manager.
+# Repo: https://github.com/Shark-vil/xray_easy_install_script
+
+# No `set -e`: this is an interactive tool and many helpers legitimately return
+# non-zero (e.g. the python engine returns 2 for "no change").
+set -o pipefail
+
+REPO_SLUG="Shark-vil/xray_easy_install_script"
+REPO_BRANCH="master"
+INSTALL_DIR="/usr/local/lib/xvei"
+
+# --- resolve our own location -------------------------------------------
+_resolve_root() {
+    local src="${BASH_SOURCE[0]}"
+    while [ -h "$src" ]; do
+        local dir; dir="$(cd -P "$(dirname "$src")" && pwd)"
+        src="$(readlink "$src")"; [[ $src != /* ]] && src="$dir/$src"
+    done
+    cd -P "$(dirname "$src")" && pwd
+}
+XVEI_ROOT="$(_resolve_root)"
+export XVEI_ROOT
+
+# --- fetching the tree ---------------------------------------------------
+# latest commit of the branch (plain sha from the GitHub API), empty on failure
+xvei_remote_sha() {
+    curl -fsSL --max-time 10 -H 'Accept: application/vnd.github.sha' \
+        "https://api.github.com/repos/$REPO_SLUG/commits/$REPO_BRANCH" 2>/dev/null \
+        | grep -E '^[0-9a-f]{40}$'
+}
+
+# Download the tree into $INSTALL_DIR and record its commit in .commit, which
+# `xvei check-updates` compares against the branch head.
+xvei_fetch_tree() {
+    local sha; sha="$(xvei_remote_sha)"
+    mkdir -p "$INSTALL_DIR"
+    curl -fsSL "https://github.com/$REPO_SLUG/archive/${sha:-refs/heads/$REPO_BRANCH}.tar.gz" \
+        | tar -xz -C "$INSTALL_DIR" --strip-components=1 || return 1
+    if [ -n "$sha" ]; then echo "$sha" > "$INSTALL_DIR/.commit"; else rm -f "$INSTALL_DIR/.commit"; fi
+    ln -sf "$INSTALL_DIR/xvei.sh" /usr/local/bin/xvei
+    chmod +x "$INSTALL_DIR/xvei.sh"
+}
+
+# --- bootstrap: fetch the modular tree when run via curl|bash ----------
+bootstrap() {
+    [ "$(id -u)" -eq 0 ] || { echo "run as root" >&2; exit 1; }
+    echo "[xvei] fetching $REPO_SLUG@$REPO_BRANCH -> $INSTALL_DIR"
+    command -v curl >/dev/null 2>&1 || { echo "curl required" >&2; exit 1; }
+    command -v tar  >/dev/null 2>&1 || { echo "tar required"  >&2; exit 1; }
+    xvei_fetch_tree || { echo "download failed" >&2; exit 1; }
+    exec bash "$INSTALL_DIR/xvei.sh" "$@"
+}
+
+if [ ! -f "$XVEI_ROOT/lib/common.sh" ]; then
+    bootstrap "$@"
+fi
+
+# --- load modules ------------------------------------------------------
+# shellcheck source=lib/common.sh
+for m in common deps adopt xray nginx certs hysteria2 turnable warp tor firewall update apply uninstall menu; do
+    # shellcheck disable=SC1090
+    source "$XVEI_ROOT/lib/$m.sh"
+done
+
+# --- high level flows ------------------------------------------------
+wizard_install() {
+    require_root
+    if ! state_exists && xray_installed; then
+        # an Xray that xvei did not set up: take it over as is, change nothing
+        adopt_preflight
+        if [ -f "$XRAY_CONFIG" ]; then
+            adopt_existing
+            return
+        fi
+    fi
+    os_check_supported
+    # bootstrap already links it; a run from a git clone needs it too
+    [ -e /usr/local/bin/xvei ] || ln -sf "$XVEI_ROOT/xvei.sh" /usr/local/bin/xvei
+    ensure_core_deps
+    xray_install
+    py init >/dev/null 2>&1 || true
+    py wizard
+    py set-meta --server-ip "$(server_ip)" >/dev/null || true
+    apply_all
+    menu_status
+    py show-links
+    echo
+    ui_dim "Full client config with routing rules: xvei client-config <tag>"
+    ui_dim "Manage everything later: xvei"
+}
+
+self_update() {
+    require_root
+    [ -d "$INSTALL_DIR" ] || die "not a bootstrapped install ($INSTALL_DIR missing)"
+    xvei_fetch_tree || die "download failed"
+    ok "updated $INSTALL_DIR"
+}
+
+_apply_after() {
+    # run a py mutation (it stages the changed config.json), then apply_all
+    # iff something changed.
+    # The engine opens /dev/tty itself for any prompts it needs.
+    py "$@"
+    local rc=$?
+    case $rc in
+        0) apply_all ;;
+        2) log "no change" ;;
+        *) exit "$rc" ;;
+    esac
+}
+
+print_help() {
+    cat <<'EOF'
+xvei - a simple Xray server setup manager
+
+  xvei                     open the interactive menu (or offer to install)
+  xvei install             guided first-time setup
+  xvei edit                interactive menu
+  xvei apply               regenerate + validate + restart from the current state
+
+  xvei add-inbound  <type> [--port N] [--dest SNI] [--method M]
+       types: vless-tls vless-ws vless-xhttp-reality vless-xhttp-tls
+              trojan-tcp trojan-ws vmess-ws shadowsocks hysteria2
+              turnable (UNSTABLE, NOT anonymous: VK sees the server IP;
+                        --dest takes the VK call link)
+  xvei remove-inbound <tag>
+  xvei add-outbound   <warp|tor|LINK ...> [--tag T]
+       LINK: vless:// vmess:// trojan:// ss:// socks5:// http:// share link
+             (quote it: it contains &)
+  xvei remove-outbound <warp|tor|TAG>
+  xvei rule add|remove <OUTBOUND|warp|tor> <matcher ...>
+                           send domains / IPs to an outbound (or stop)
+  xvei rule list [OUTBOUND] all rules, numbered (or one outbound's matchers)
+  xvei rule delete <N>     delete rule N
+  xvei template <russia|iran|china> --exit <warp|tor|block|TAG> [--tunnel <warp|tor|TAG> | --direct]
+  xvei template popular --tunnel <warp|tor|TAG>
+  xvei template none [--tunnel <warp|tor|TAG> | --direct | --keep]
+       everything else: --tunnel / --direct, or --keep (the default) leaves
+       the last catch-all rule (or the first outbound as default) as it is
+  xvei site [list | auth | blank | 404 | <preset> | proxy <url|preset>]
+       presets: nebula critters game2048 snake notes
+
+  xvei links [tag]         print client share links
+  xvei qr <tag> [client]   print a QR code for one inbound (client: name or number)
+  xvei client-config <tag> print the full Xray client config (with routing rules)
+  xvei status              services + active template
+  xvei show-config [file]  print config.json (JSON5, comments kept) readably
+  xvei firewall [status | open | setup]
+       status: show the firewall and which needed ports are open
+       open:   add allow rules for the ports xvei needs (active ufw/firewalld)
+       setup:  opt-in "deny incoming except SSH + xvei ports" (asks first)
+  xvei set-meta [--domain D --email E ...]
+  xvei backup [list [PAGE] | create [NOTE] | show N | diff N | restore N | delete N | keep [N]]
+                           backups of config.json + xvei state, made before every
+                           change: list (10 a page, 1 = newest), view, compare with
+                           the current config, roll back; keep N (default 20,
+                           0 = automatic backups off)
+  xvei check-updates       compare xvei / xray / hysteria2 / geo data with the
+                           latest releases and offer to update
+  xvei update-geo          refresh geoip/geosite
+  xvei self-update         re-fetch the script tree
+  xvei remove [--all [--packages]] [--yes]
+                           uninstall only xvei (Xray keeps running);
+                           --all: xvei and everything it set up;
+                           always asks for confirmation unless --yes
+EOF
+}
+
+# --- dispatch --------------------------------------------------------
+cmd="${1:-}"; shift || true
+case "$cmd" in
+    ""|edit|menu)        main_menu ;;
+    install)             wizard_install ;;
+    apply)               apply_all ;;
+    add-inbound)         _apply_after add-inbound "$@" ;;
+    remove-inbound)      _apply_after remove-inbound "$@" ;;
+    add-outbound)        _apply_after add-outbound "$@" ;;
+    remove-outbound)     _apply_after remove-outbound "$@" ;;
+    rule)                _apply_after rule "$@" ;;
+    template)            _apply_after template "$@" ;;
+    site)                if [ "${1:-list}" = "list" ]; then py site list
+                         else _apply_after site "$@"; fi ;;
+    set-meta)            _apply_after set-meta "$@" ;;
+    links)               py show-links ${1:+--tag "$1"} ;;
+    qr)                  [ -n "${1:-}" ] || die "usage: xvei qr <tag> [client]"
+                         picked="$(py link "$1" ${2:+--client "$2"} --label)" || exit 1
+                         qr_show "${picked%%$'\t'*}" "${picked#*$'\t'}" ;;
+    client-config)       [ -n "${1:-}" ] || die "usage: xvei client-config <tag>"
+                         py client-config "$1" ;;
+    status)              menu_status ;;
+    show-config)         show_config "${1:-}" ;;
+    firewall)            case "${1:-status}" in
+                             status) fw_status ;;
+                             open)   fw_open ;;
+                             setup)  fw_setup ;;
+                             *)      die "usage: xvei firewall [status|open|setup]" ;;
+                         esac ;;
+    check-updates)       check_updates ;;
+    update-geo)          require_root; xray_update_geo; xray_restart; ok "geo updated" ;;
+    self-update)         self_update ;;
+    backup)              require_root
+                         case "${1:-list}" in
+                             list)    py backup-list "${2:-1}" ;;
+                             create)  shift; py backup-create "$@" ;;
+                             show)    py backup-show "${2:?usage: xvei backup show <N>}" ;;
+                             diff)    py backup-diff "${2:?usage: xvei backup diff <N>}" ;;
+                             restore) _apply_after backup-restore "${2:?usage: xvei backup restore <N> [--yes]}" ${3:+"$3"} ;;
+                             delete)  py backup-delete "${2:?usage: xvei backup delete <N>}" ;;
+                             keep)    py backup-keep ${2:+"$2"} ;;
+                             *)       die "usage: xvei backup [list|create|show|diff|restore|delete|keep]" ;;
+                         esac ;;
+    remove|uninstall)    xvei_remove "$@" ;;
+    _renew-hook)         require_root; cert_renew_hook_run ;;
+    help|-h|--help)      print_help ;;
+    *)                   err "unknown command: $cmd"; print_help; exit 1 ;;
+esac
